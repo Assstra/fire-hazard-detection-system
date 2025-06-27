@@ -1,0 +1,11 @@
+datasets/*
+data/*
+
+notebooks/runs/
+notebooks/**/*.pt
+
+.venv/
+.python-version
+
+# also, ignore all gitkeep files
+!.gitkeep

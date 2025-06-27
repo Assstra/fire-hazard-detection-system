@@ -1,0 +1,8 @@
+# see: https://docs.ultralytics.com/datasets/detect/#ultralytics-yolo-format
+path: ../data/D-Fire
+train: train
+val: val
+
+names:
+  0: fire
+  1: smoke
