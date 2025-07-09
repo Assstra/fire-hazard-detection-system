@@ -1,8 +1,8 @@
 datasets/*
 data/*
 
-notebooks/runs/
-notebooks/**/*.pt
+notebooks/*
+!notebooks/.ipynb
 
 .venv/
 .python-version
