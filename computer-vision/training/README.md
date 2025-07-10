@@ -1,18 +1,18 @@
-# computer-vision
+# computer-vision/training
 
-This folder contains code for the computer vision module (focused on detecting fire or hot objects) and the decision-making algorithm used in a fire hazard detection system and autonomous robot.
+This folder contains code to build the YOLO model (RGB) and to detect fire from a lepton camera (IR).
 
 ## Before you start
 
 To start, download the base dataset to train the model.
 
-First, download the D-fire zip archive and put it in the [`-/computer-vision/data/`](./computer-vision/data/) folder, you can find here: [github.com/gaiasd/DFireDataset](https://github.com/gaiasd/DFireDataset).
+First, download the D-fire zip archive and put it in the [`-/computer-vision/training/data/`](./data/) folder, you can find here: [github.com/gaiasd/DFireDataset](https://github.com/gaiasd/DFireDataset).
 
-Then, run the script to format it correctly:
+Then, run the script the following script:
 
 ```bash
 # assuming you are in the computer-vision folder
-bash scripts/format_dfire_dataset.sh
+bash scripts/extract_dfire_dataset.sh
 ```
 
 ## Citations
