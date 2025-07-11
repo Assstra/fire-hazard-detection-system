@@ -83,6 +83,10 @@ def handle_patrol(client, goal_active, current_goal, waypoint_idx):
         waypoint_idx = (waypoint_idx + 1) % len(waypoints)
         goal_active = False
         current_goal = None
+    elif state == actionlib.GoalStatus.ABORTED:
+        rospy.logwarn("Goal aborted, retrying waypoint: {}".format(waypoint_idx))
+        goal_active = False
+        current_goal = None
     return goal_active, current_goal, waypoint_idx
 
 
@@ -95,11 +99,16 @@ def handle_alert(client, goal_active, current_goal, alert_pose):
 
     state = client.get_state()
     alert_done = False
+    # TODO: handle camera turn
     if state == actionlib.GoalStatus.SUCCEEDED:
         rospy.loginfo("Reached alert position.")
         goal_active = False
         current_goal = None
         alert_done = True
+    elif state == actionlib.GoalStatus.ABORTED:
+        rospy.logwarn("Alert goal aborted, retrying.")
+        goal_active = False
+        current_goal = None
     return goal_active, current_goal, alert_done
 
 
