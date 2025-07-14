@@ -2,7 +2,7 @@ datasets/*
 data/*
 
 notebooks/*
-!notebooks/.ipynb
+!notebooks/*.ipynb
 
 .venv/
 .python-version
