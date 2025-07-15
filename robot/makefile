@@ -6,3 +6,6 @@ start:
 run:
 	cd ../../.. && catkin_make
 	rosrun fire-hazard-detection-system node.py
+
+make:
+	cd ../../.. && catkin_make
