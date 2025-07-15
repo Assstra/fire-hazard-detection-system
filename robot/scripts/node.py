@@ -38,15 +38,17 @@ def make_waypoint(
 waypoint_SW: Pose = make_waypoint(87.0, 0.0, 0.0, 0, 0, 0, 1)
 waypoint_S1: Pose = make_waypoint(87.0, 12.0, 0.0, 0, 0, 0.707, 0.707)
 waypoint_S2: Pose = make_waypoint(85.0, 20.0, 0.0, 0, 0, 0.707, 0.707)
-waypoint_SE: Pose = make_waypoint(85.0, 50.0, 0.0, 0, 0, 0.707, 0.707)
-waypoint_E1: Pose = make_waypoint(55.0, 49.0, 0.0, 0, 0, -1, 0)
-waypoint_E2: Pose = make_waypoint(57.5, 45.0, 0.0, 0, 0, -1, 0)
-waypoint_E3: Pose = make_waypoint(15.0, 45.0, 0.0, 0, 0, -1, 0)
-waypoint_E4: Pose = make_waypoint(50.0, 15.0, 0.0, 0, 0, -1, 0)
-waypoint_E5: Pose = make_waypoint(-35.0, 52.5, 0.0, 0, 0, -1, 0)
-waypoint_E6: Pose = make_waypoint(-35.0, 45.0, 0.0, 0, 0, -1, 0)
-waypoint_E7: Pose = make_waypoint(-68.0, 47.5, 0.0, 0, 0, -1, 0)
-waypoint_E8: Pose = make_waypoint(-68.0, 52.5, 0.0, 0, 0, -1, 0)
+waypoint_SE: Pose = make_waypoint(84.5, 50.0, 0.0, 0, 0, 0.707, 0.707)
+waypoint_E1: Pose = make_waypoint(57.5, 49.0, 0.0, 0, 0, -1, 0)
+waypoint_E2: Pose = make_waypoint(55, 43.0, 0.0, 0, 0, -1, 0)
+waypoint_E3: Pose = make_waypoint(43.0, 43.0, 0.0, 0, 0, -1, 0)
+waypoint_E4: Pose = make_waypoint(35.0, 43.0, 0.0, 0, 0, -1, 0)
+waypoint_E5: Pose = make_waypoint(15.0, 45.0, 0.0, 0, 0, -1, 0)
+waypoint_E6: Pose = make_waypoint(15.0, 51.0, 0.0, 0, 0, -1, 0)
+waypoint_E7: Pose = make_waypoint(-35.0, 52.5, 0.0, 0, 0, -1, 0)
+waypoint_E8: Pose = make_waypoint(-35.0, 45.0, 0.0, 0, 0, -1, 0)
+waypoint_E9: Pose = make_waypoint(-68.0, 47.5, 0.0, 0, 0, -1, 0)
+waypoint_E10: Pose = make_waypoint(-68.0, 52.5, 0.0, 0, 0, -1, 0)
 waypoint_NE: Pose = make_waypoint(-105.0, 50.0, 0.0, 0, 0, -1, 0)
 waypoint_NW: Pose = make_waypoint(-105.0, 0.0, 0.0, 0, 0, -0.707, 0.707)
 
@@ -63,6 +65,8 @@ waypoints: List[Pose] = [
     waypoint_E6,
     waypoint_E7,
     waypoint_E8,
+    waypoint_E9,
+    waypoint_E10,
     waypoint_NE,
     waypoint_NW,
 ]
@@ -84,7 +88,7 @@ def odom_callback(msg: Odometry) -> None:
 
 
 def is_near_goal(
-    goal_pose: Pose, current_pose: Optional[Pose], threshold: float = 1
+    goal_pose: Pose, current_pose: Optional[Pose], threshold: float = 0.5
 ) -> bool:
     if current_pose is None:
         return False
@@ -169,6 +173,7 @@ def handle_alert(
         goal_active = False
         current_goal = None
         alert_done = True
+        client.cancel_all_goals()
     elif state == actionlib.GoalStatus.ABORTED:
         rospy.logwarn("Alert goal aborted, retrying.")
         goal_active = False
