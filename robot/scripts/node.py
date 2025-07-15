@@ -20,7 +20,10 @@ alert_pose: Optional[Pose] = None
 current_goal: Optional[int] = None  # can also be "ALERT" (str), but default is int
 current_position: Optional[Pose] = None
 
-def make_waypoint(x: float, y: float, z: float, ox: float, oy: float, oz: float, ow: float) -> Pose:
+
+def make_waypoint(
+    x: float, y: float, z: float, ox: float, oy: float, oz: float, ow: float
+) -> Pose:
     pose = Pose()
     pose.position.x = x
     pose.position.y = y
@@ -47,7 +50,22 @@ waypoint_E8: Pose = make_waypoint(-68.0, 52.5, 0.0, 0, 0, -1, 0)
 waypoint_NE: Pose = make_waypoint(-105.0, 50.0, 0.0, 0, 0, -1, 0)
 waypoint_NW: Pose = make_waypoint(-105.0, 0.0, 0.0, 0, 0, -0.707, 0.707)
 
-waypoints: list[Pose] = [waypoint_SW, waypoint_S1, waypoint_S2, waypoint_SE, waypoint_E1, waypoint_E2, waypoint_E3, waypoint_E4, waypoint_E5, waypoint_E6, waypoint_E7, waypoint_E8, waypoint_NE, waypoint_NW]
+waypoints: list[Pose] = [
+    waypoint_SW,
+    waypoint_S1,
+    waypoint_S2,
+    waypoint_SE,
+    waypoint_E1,
+    waypoint_E2,
+    waypoint_E3,
+    waypoint_E4,
+    waypoint_E5,
+    waypoint_E6,
+    waypoint_E7,
+    waypoint_E8,
+    waypoint_NE,
+    waypoint_NW,
+]
 
 
 def alert_callback(msg: Pose) -> None:
@@ -64,13 +82,17 @@ def odom_callback(msg: Odometry) -> None:
     current_position = msg.pose.pose
     return
 
-def is_near_goal(goal_pose: Pose, current_pose: Optional[Pose], threshold: float = 0.5) -> bool:
+
+def is_near_goal(
+    goal_pose: Pose, current_pose: Optional[Pose], threshold: float = 0.5
+) -> bool:
     if current_pose is None:
         return False
     dx = goal_pose.position.x - current_pose.position.x
     dy = goal_pose.position.y - current_pose.position.y
     distance = math.hypot(dx, dy)
     return distance < threshold
+
 
 def send_patrol_goal(client: actionlib.SimpleActionClient, waypoint_idx: int) -> int:
     goal = MoveBaseGoal()
@@ -95,7 +117,7 @@ def handle_patrol(
     client: actionlib.SimpleActionClient,
     goal_active: bool,
     current_goal: Optional[int],
-    waypoint_idx: int
+    waypoint_idx: int,
 ) -> tuple[bool, Optional[int], int]:
     global current_position
     goal_pose = waypoints[waypoint_idx]
@@ -105,7 +127,11 @@ def handle_patrol(
         current_goal = waypoint_idx
 
     state = client.get_state()
-    if state == actionlib.GoalStatus.SUCCEEDED or goal_active and is_near_goal(goal_pose, current_position):
+    if (
+        state == actionlib.GoalStatus.SUCCEEDED
+        or goal_active
+        and is_near_goal(goal_pose, current_position)
+    ):
         rospy.loginfo("Reached waypoint: {}".format(waypoint_idx))
         waypoint_idx = (waypoint_idx + 1) % len(waypoints)
         goal_active = False
@@ -121,7 +147,7 @@ def handle_alert(
     client: actionlib.SimpleActionClient,
     goal_active: bool,
     current_goal: Optional[str],
-    alert_pose: Pose
+    alert_pose: Pose,
 ) -> tuple[bool, Optional[str], bool]:
     global current_position
     if not goal_active or current_goal != "ALERT":
@@ -133,7 +159,11 @@ def handle_alert(
     state = client.get_state()
     alert_done = False
     # TODO: handle camera turn
-    if state == actionlib.GoalStatus.SUCCEEDED or goal_active and is_near_goal(alert_pose, current_position):
+    if (
+        state == actionlib.GoalStatus.SUCCEEDED
+        or goal_active
+        and is_near_goal(alert_pose, current_position)
+    ):
         rospy.loginfo("Reached alert position.")
         rospy.loginfo(format(current_position))
         goal_active = False
