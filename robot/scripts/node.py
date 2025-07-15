@@ -7,7 +7,7 @@ import actionlib
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 from geometry_msgs.msg import Pose
 from enum import Enum
-from typing import Optional
+from typing import Optional, List, Tuple
 
 
 class RobotState(Enum):
@@ -50,7 +50,7 @@ waypoint_E8: Pose = make_waypoint(-68.0, 52.5, 0.0, 0, 0, -1, 0)
 waypoint_NE: Pose = make_waypoint(-105.0, 50.0, 0.0, 0, 0, -1, 0)
 waypoint_NW: Pose = make_waypoint(-105.0, 0.0, 0.0, 0, 0, -0.707, 0.707)
 
-waypoints: list[Pose] = [
+waypoints: List[Pose] = [
     waypoint_SW,
     waypoint_S1,
     waypoint_S2,
@@ -84,7 +84,7 @@ def odom_callback(msg: Odometry) -> None:
 
 
 def is_near_goal(
-    goal_pose: Pose, current_pose: Optional[Pose], threshold: float = 0.5
+    goal_pose: Pose, current_pose: Optional[Pose], threshold: float = 1
 ) -> bool:
     if current_pose is None:
         return False
@@ -118,7 +118,7 @@ def handle_patrol(
     goal_active: bool,
     current_goal: Optional[int],
     waypoint_idx: int,
-) -> tuple[bool, Optional[int], int]:
+) -> Tuple[bool, Optional[int], int]:
     global current_position
     goal_pose = waypoints[waypoint_idx]
     if not goal_active or current_goal != waypoint_idx:
@@ -148,7 +148,7 @@ def handle_alert(
     goal_active: bool,
     current_goal: Optional[str],
     alert_pose: Pose,
-) -> tuple[bool, Optional[str], bool]:
+) -> Tuple[bool, Optional[str], bool]:  
     global current_position
     if not goal_active or current_goal != "ALERT":
         client.cancel_all_goals()
@@ -196,10 +196,10 @@ def robot_statemachine() -> bool:
                 current_state = RobotState.PATROL
                 alert_pose = None
 
-        elif current_state == RobotState.PATROL:
-            goal_active, current_goal, waypoint_idx = handle_patrol(
-                client, goal_active, current_goal, waypoint_idx
-            )
+        #elif current_state == RobotState.PATROL:
+        #    goal_active, current_goal, waypoint_idx = handle_patrol(
+        #        client, goal_active, current_goal, waypoint_idx
+        #    )
 
         rate.sleep()
 
