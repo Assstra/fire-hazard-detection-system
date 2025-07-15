@@ -201,10 +201,10 @@ def robot_statemachine() -> bool:
                 current_state = RobotState.PATROL
                 alert_pose = None
 
-        #elif current_state == RobotState.PATROL:
-        #    goal_active, current_goal, waypoint_idx = handle_patrol(
-        #        client, goal_active, current_goal, waypoint_idx
-        #    )
+        elif current_state == RobotState.PATROL:
+            goal_active, current_goal, waypoint_idx = handle_patrol(
+                client, goal_active, current_goal, waypoint_idx
+            )
 
         rate.sleep()
 
