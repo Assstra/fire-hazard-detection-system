@@ -31,7 +31,7 @@ You can use the model trained in the `../training` directory.
   - `.engine` (TensorRT)
 - `--host`: Host to bind to (default: `0.0.0.0`)
 - `--port`: Port to bind to (default: `8000`)
-- `--log-level`: Log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) (default: `INFO`)
+- `--confidence`: Sets the minimum confidence threshold for detections (default: 0.25)
 
 ### API Endpoints
 

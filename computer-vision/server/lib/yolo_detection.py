@@ -13,8 +13,9 @@ logger = logging.getLogger(__name__)
 class YOLODetectionService:
     """Service for fire/smoke detection using YOLOv11 model"""
 
-    def __init__(self, model_path: str):
+    def __init__(self, model_path: str, confidence_threshold: float):
         self.model_path = model_path
+        self.confidence_threshold = confidence_threshold
         self.model = None
         self.load_model()
 
@@ -22,7 +23,7 @@ class YOLODetectionService:
         """Load YOLOv11 model"""
         try:
             self.model = YOLO(self.model_path, task="detect")
-            logger.info(f"Successfully loaded model from {self.model_path}")
+            logger.info(f"Successfully loaded model from {self.model_path} with confidence {self.confidence_threshold}")
         except Exception as e:
             logger.error(f"Failed to load model: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to load model: {e}")
@@ -33,7 +34,7 @@ class YOLODetectionService:
             raise HTTPException(status_code=500, detail="Model not loaded")
 
         try:
-            results = self.model.predict(image, stream=True, conf=0.5)
+            results = self.model.predict(image, stream=True, conf=self.confidence_threshold)
             detections = []
 
             for result in results:

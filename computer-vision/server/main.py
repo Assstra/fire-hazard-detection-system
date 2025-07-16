@@ -15,7 +15,7 @@ yolo_detect_service: Optional[YOLODetectionService] = None
 event_streamer: Optional[EventStreamer] = None
 
 
-def create_app(model_path: str) -> FastAPI:
+def create_app(args: argparse.Namespace) -> FastAPI:
     """Create FastAPI application with detection service"""
     global yolo_detect_service, event_streamer
 
@@ -27,7 +27,7 @@ def create_app(model_path: str) -> FastAPI:
             event_streamer.active_streams.clear()
         logger.info("Server shutdown complete")
 
-    yolo_detect_service = YOLODetectionService(model_path)
+    yolo_detect_service = YOLODetectionService(args.model, args.confidence)
     event_streamer = EventStreamer(yolo_detect_service)
 
     app = FastAPI(
@@ -40,7 +40,7 @@ def create_app(model_path: str) -> FastAPI:
     async def root():
         return {
             "message": app.title,
-            "model_path": model_path,
+            "model_path": args.model,
             "endpoints": {
                 "health": "/health",
                 "events": "/events",
@@ -101,10 +101,11 @@ def parse_args():
         "--port", type=int, default=8000, help="Port to bind to (default: 8000)"
     )
     parser.add_argument(
-        "--log-level",
-        default="INFO",
-        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
-        help="Log level (default: INFO)",
+        "--confidence",
+        "-c",
+        type=float,
+        default=0.25,
+        help="Sets the minimum confidence threshold for detections (default: 0.25)",
     )
 
     return parser.parse_args()
@@ -113,9 +114,7 @@ def parse_args():
 def main():
     args = parse_args()
 
-    logging.getLogger().setLevel(getattr(logging, args.log_level))
-
-    app = create_app(args.model)
+    app = create_app(args)
 
     import uvicorn
 
@@ -124,7 +123,7 @@ def main():
     logger.info("Detection event stream endpoint: /events")
 
     # Run server
-    uvicorn.run(app, host=args.host, port=args.port, log_level=args.log_level.lower())
+    uvicorn.run(app, host=args.host, port=args.port)
 
 
 if __name__ == "__main__":
