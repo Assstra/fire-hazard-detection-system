@@ -2,5 +2,16 @@
 __pycache__/
 .python-version
 
+# Model files
+*.pt
+*.onnx
+*.engine
+*.trt
+*.torchscript
+*.pb
+models/
+weights/
+
+
 # also, ignore all gitkeep files
 !.gitkeep
