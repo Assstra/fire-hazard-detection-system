@@ -152,7 +152,7 @@ def main():
         help="Video source index (default: 0 for webcam)",
     )
     parser.add_argument(
-        "--test-only", action="store_true", help="Only test endpoints, don't stream"
+        "--no-streaming", action="store_true", help="Only test endpoints, don't stream"
     )
 
     args = parser.parse_args()
