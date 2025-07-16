@@ -1,8 +1,3 @@
-#!/usr/bin/env python3
-"""
-Simple test client for the Fire/Smoke Detection Server SSE streaming
-"""
-
 import requests
 import json
 import time
@@ -166,7 +161,7 @@ def main():
     # Test basic endpoints
     test_server_endpoints(base_url)
 
-    if not args.test_only:
+    if not args.no_streaming:
         # Start streaming
         stream_detections(base_url, args.video_source)
 
