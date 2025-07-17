@@ -7,5 +7,9 @@ run:
 	cd ../../.. && catkin_make
 	rosrun fire-hazard-detection-system node.py
 
+debug:
+	cd ../../.. && catkin_make
+	rosrun fire-hazard-detection-system node.py --debug
+
 make:
 	cd ../../.. && catkin_make

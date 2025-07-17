@@ -2,6 +2,7 @@
 
 import math
 import rospy
+import sys
 from nav_msgs.msg import Odometry
 import actionlib
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
@@ -14,11 +15,13 @@ class RobotState(Enum):
     PATROL = 1
     ALERT = 2
 
-
 current_state: RobotState = RobotState.PATROL
 alert_pose: Optional[Pose] = None
 current_goal: Optional[int] = None  # can also be "ALERT" (str), but default is int
 current_position: Optional[Pose] = None
+
+# Debug flag to disable patrol mode
+DEBUG: bool = False
 
 
 def make_waypoint(
@@ -35,22 +38,26 @@ def make_waypoint(
     return pose
 
 
-waypoint_SW: Pose = make_waypoint(87.0, 0.0, 0.0, 0, 0, 0, 1)
+waypoint_SW: Pose = make_waypoint(86.0, 0.0, 0.0, 0, 0, 0, 1)
 waypoint_S1: Pose = make_waypoint(87.0, 12.0, 0.0, 0, 0, 0.707, 0.707)
 waypoint_S2: Pose = make_waypoint(85.0, 20.0, 0.0, 0, 0, 0.707, 0.707)
 waypoint_SE: Pose = make_waypoint(84.5, 50.0, 0.0, 0, 0, 0.707, 0.707)
 waypoint_E1: Pose = make_waypoint(57.5, 49.0, 0.0, 0, 0, -1, 0)
 waypoint_E2: Pose = make_waypoint(55, 43.0, 0.0, 0, 0, -1, 0)
 waypoint_E3: Pose = make_waypoint(43.0, 43.0, 0.0, 0, 0, -1, 0)
-waypoint_E4: Pose = make_waypoint(35.0, 43.0, 0.0, 0, 0, -1, 0)
+waypoint_E4: Pose = make_waypoint(35.0, 44.0, 0.0, 0, 0, -1, 0)
 waypoint_E5: Pose = make_waypoint(15.0, 45.0, 0.0, 0, 0, -1, 0)
 waypoint_E6: Pose = make_waypoint(15.0, 51.0, 0.0, 0, 0, -1, 0)
 waypoint_E7: Pose = make_waypoint(-35.0, 52.5, 0.0, 0, 0, -1, 0)
 waypoint_E8: Pose = make_waypoint(-35.0, 45.0, 0.0, 0, 0, -1, 0)
 waypoint_E9: Pose = make_waypoint(-68.0, 47.5, 0.0, 0, 0, -1, 0)
-waypoint_E10: Pose = make_waypoint(-68.0, 52.5, 0.0, 0, 0, -1, 0)
-waypoint_NE: Pose = make_waypoint(-105.0, 50.0, 0.0, 0, 0, -1, 0)
-waypoint_NW: Pose = make_waypoint(-105.0, 0.0, 0.0, 0, 0, -0.707, 0.707)
+waypoint_E10: Pose = make_waypoint(-68.0, 55, 0.0, 0, 0, -1, 0)
+waypoint_NE: Pose = make_waypoint(-105.0, 52.5, 0.0, 0, 0, -1, 0)
+waypoint_NW: Pose = make_waypoint(-105.0, 5.0, 0.0, 0, 0, -0.707, 0.707)
+waypoint_W1: Pose = make_waypoint(-80.0, 4.0, 0.0, 0, 0, -0.707, 0.707)
+waypoint_W2: Pose = make_waypoint(-50.0, 3.0, 0.0, 0, 0, -0.707, 0.707)
+waypoint_W3: Pose = make_waypoint(-35.0, 2.0, 0.0, 0, 0, -0.707, 0.707)
+waypoint_W4: Pose = make_waypoint(0.0 ,2.0, 0.0, 0, 0, -0.707, 0.707)
 
 waypoints: List[Pose] = [
     waypoint_SW,
@@ -69,6 +76,10 @@ waypoints: List[Pose] = [
     waypoint_E10,
     waypoint_NE,
     waypoint_NW,
+    waypoint_W1,
+    waypoint_W2,
+    waypoint_W3,
+    waypoint_W4,
 ]
 
 
@@ -104,7 +115,7 @@ def odom_callback(msg: Odometry) -> None:
 
 
 def is_near_goal(
-    goal_pose: Pose, current_pose: Optional[Pose], threshold: float = 0.5
+    goal_pose: Pose, current_pose: Optional[Pose], threshold: float = 0.75
 ) -> bool:
     if current_pose is None:
         return False
@@ -119,7 +130,7 @@ def send_patrol_goal(client: actionlib.SimpleActionClient, waypoint_idx: int) ->
     goal.target_pose.header.frame_id = "map"
     goal.target_pose.header.stamp = rospy.Time.now()
     goal.target_pose.pose = waypoints[waypoint_idx]
-    rospy.loginfo("Patrolling to waypoint: {}".format(goal.target_pose.pose))
+    rospy.loginfo("Patrolling to waypoint: {} at {}".format(waypoint_idx, goal.target_pose.pose))
     client.send_goal(goal)
     return waypoint_idx
 
@@ -179,6 +190,7 @@ def handle_alert(
     state = client.get_state()
     alert_done = False
     # TODO: handle camera turn
+
     if (
         state == actionlib.GoalStatus.SUCCEEDED
         or goal_active
@@ -198,14 +210,15 @@ def handle_alert(
 
 
 def robot_statemachine() -> bool:
-    global current_state, alert_pose, current_goal, current_position
+    global current_state, alert_pose, current_goal, current_position, DEBUG
 
     client = actionlib.SimpleActionClient("move_base", MoveBaseAction)
     client.wait_for_server()
 
-    nearest_waypoint = get_nearest_waypoint(current_position)
-    waypoint_idx = nearest_waypoint[0]
-    rospy.loginfo("Starting at nearest waypoint: {} of distance: {}".format(waypoint_idx, nearest_waypoint[1]))
+    if not DEBUG:
+        nearest_waypoint = get_nearest_waypoint(current_position)
+        waypoint_idx = nearest_waypoint[0]
+        rospy.loginfo("Starting at nearest waypoint: {} of distance: {}".format(waypoint_idx, nearest_waypoint[1]))
     goal_active = False
 
     rate = rospy.Rate(2)  # 2 Hz loop
@@ -219,7 +232,7 @@ def robot_statemachine() -> bool:
                 current_state = RobotState.PATROL
                 alert_pose = None
 
-        elif current_state == RobotState.PATROL:
+        elif current_state == RobotState.PATROL and not DEBUG:
             goal_active, current_goal, waypoint_idx = handle_patrol(
                 client, goal_active, current_goal, waypoint_idx
             )
@@ -232,6 +245,11 @@ def robot_statemachine() -> bool:
 
 
 if __name__ == "__main__":
+    # Check for debug argument
+    if "--debug" in sys.argv or "-d" in sys.argv:
+        DEBUG = True
+        rospy.loginfo("[DEBUG] Patrol mode will be disabled.")
+
     rospy.init_node("check_odometry")
     odom_sub = rospy.Subscriber("/odom", Odometry, odom_callback)
     alert_sub = rospy.Subscriber("/alert", Pose, alert_callback)
