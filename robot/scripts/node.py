@@ -72,6 +72,22 @@ waypoints: List[Pose] = [
 ]
 
 
+def get_nearest_waypoint(pose: Pose) -> Tuple[int, float]:
+    """
+    Returns the index and distance of the nearest waypoint to the given pose.
+    """
+    min_dist = float("inf")
+    min_idx = -1
+    for idx, wp in enumerate(waypoints):
+        dx = wp.position.x - pose.position.x
+        dy = wp.position.y - pose.position.y
+        dist = math.hypot(dx, dy)
+        if dist < min_dist:
+            min_dist = dist
+            min_idx = idx
+    return min_idx, min_dist
+
+
 def alert_callback(msg: Pose) -> None:
     global current_state, alert_pose
     rospy.loginfo(
@@ -182,12 +198,14 @@ def handle_alert(
 
 
 def robot_statemachine() -> bool:
-    global current_state, alert_pose, current_goal
+    global current_state, alert_pose, current_goal, current_position
 
     client = actionlib.SimpleActionClient("move_base", MoveBaseAction)
     client.wait_for_server()
 
-    waypoint_idx = 0
+    nearest_waypoint = get_nearest_waypoint(current_position)
+    waypoint_idx = nearest_waypoint[0]
+    rospy.loginfo("Starting at nearest waypoint: {} of distance: {}".format(waypoint_idx, nearest_waypoint[1]))
     goal_active = False
 
     rate = rospy.Rate(2)  # 2 Hz loop
