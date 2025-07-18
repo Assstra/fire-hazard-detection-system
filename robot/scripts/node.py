@@ -3,10 +3,9 @@
 import math
 import rospy
 import sys
-from nav_msgs.msg import Odometry
 import actionlib
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
-from geometry_msgs.msg import Pose
+from geometry_msgs.msg import Pose, PoseWithCovarianceStamped
 from enum import Enum
 from typing import Optional, List, Tuple
 
@@ -57,7 +56,7 @@ waypoint_NW: Pose = make_waypoint(-105.0, 5.0, 0.0, 0, 0, -0.707, 0.707)
 waypoint_W1: Pose = make_waypoint(-80.0, 4.0, 0.0, 0, 0, -0.707, 0.707)
 waypoint_W2: Pose = make_waypoint(-50.0, 3.0, 0.0, 0, 0, -0.707, 0.707)
 waypoint_W3: Pose = make_waypoint(-35.0, 2.0, 0.0, 0, 0, -0.707, 0.707)
-waypoint_W4: Pose = make_waypoint(0.0 ,2.0, 0.0, 0, 0, -0.707, 0.707)
+waypoint_W4: Pose = make_waypoint(20.0 ,0.0, 0.0, 0, 0, -0.707, 0.707)
 
 waypoints: List[Pose] = [
     waypoint_SW,
@@ -108,7 +107,7 @@ def alert_callback(msg: Pose) -> None:
     current_state = RobotState.ALERT
 
 
-def odom_callback(msg: Odometry) -> None:
+def pose_callback(msg: PoseWithCovarianceStamped) -> None:
     global current_position
     current_position = msg.pose.pose
     return
@@ -251,7 +250,7 @@ if __name__ == "__main__":
         rospy.loginfo("[DEBUG] Patrol mode will be disabled.")
 
     rospy.init_node("check_odometry")
-    odom_sub = rospy.Subscriber("/odom", Odometry, odom_callback)
+    odom_sub = rospy.Subscriber("/amcl_pose", PoseWithCovarianceStamped, pose_callback)
     alert_sub = rospy.Subscriber("/alert", Pose, alert_callback)
 
     try:
