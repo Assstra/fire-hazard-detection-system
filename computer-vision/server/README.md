@@ -55,7 +55,7 @@ Returns loaded model details including class names and configuration.
 
 #### Detection Stream (SSE)
 ```
-GET /stream?video_source=0
+GET /events?video_source=0
 ```
 Streams detection events in real-time via Server-Sent Events.
 
@@ -97,22 +97,11 @@ The SSE stream produces the following event data types:
 
 ```jsonc
 {
-  "type": "yolo_detection",
-  // bounding boxes provided with yolo inference
-  // will maybe change when adding IR camera
-  "detections": [
-    {
-        "class": "fire",
-        "confidence": 0.6,
-        "bbox": {
-          "x1": 100,
-          "y1": 150,
-          "x2": 200,
-          "y2": 250
-        },
-        "timestamp": 1703123456.789
-    }
-  ],
+  "type": "rgb_detection",
+  // Position of the boxes, from the center: "left", "right", "center" or "none"
+  "position": "left",
+  // If you want to measure the time spent in detection
+  "timestamp_start": 1753158175.0682974,
   "frame_info": {
     "width": 640,
     "height": 480,

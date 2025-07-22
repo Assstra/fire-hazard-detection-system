@@ -16,15 +16,6 @@ def parse_sse_event(line: str) -> Dict[str, Any]:
     return {}
 
 
-def format_detection(detection: Dict[str, Any]) -> str:
-    """Format detection for display"""
-    class_name = detection.get("class", "unknown")
-    confidence = detection.get("confidence", 0)
-    bbox = detection.get("bbox", {})
-
-    return f"  - {class_name}: {confidence:.2f} at [{bbox.get('x1', 0):.0f}, {bbox.get('y1', 0):.0f}, {bbox.get('x2', 0):.0f}, {bbox.get('y2', 0):.0f}]"
-
-
 def print_event(event_data: Dict[str, Any]):
     """Print event data in a formatted way"""
     event_type = event_data.get("type", "unknown")
@@ -34,16 +25,15 @@ def print_event(event_data: Dict[str, Any]):
         stream_id = event_data.get("stream_id", "unknown")
         print(f"[{timestamp}] Connected to stream {stream_id}")
 
-    elif event_type == "detection":
-        detections = event_data.get("detections", [])
+    elif event_type == "rgb_detection":
+        fire_position = event_data.get("position", "unknown")
+        timestamp_start = event_data.get("timestamp_start", "")
         frame_info = event_data.get("frame_info", {})
 
         print(f"[{timestamp}] Detection event:")
         print(f"  Frame: {frame_info.get('width', 0)}x{frame_info.get('height', 0)}")
-        print(f"  Found {len(detections)} object(s):")
-
-        for detection in detections:
-            print(format_detection(detection))
+        print(f"  Fire position: {fire_position}")
+        print(f"  Elapsed time: {time.time() - float(timestamp_start):.4f} seconds")
 
     elif event_type == "error":
         message = event_data.get("message", "Unknown error")

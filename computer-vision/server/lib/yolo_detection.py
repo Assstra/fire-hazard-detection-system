@@ -5,7 +5,8 @@ import cv2
 from fastapi import HTTPException
 import numpy as np
 from ultralytics import YOLO
-from typing import AsyncGenerator, Dict, Any, List
+from typing import AsyncGenerator, Dict, Any
+from lib import DetectionKind, Position
 
 logger = logging.getLogger(__name__)
 
@@ -23,55 +24,63 @@ class YOLODetectionService:
         """Load YOLOv11 model"""
         try:
             self.model = YOLO(self.model_path, task="detect")
-            logger.info(f"Successfully loaded model from {self.model_path} with confidence {self.confidence_threshold}")
+            logger.info(
+                f"Successfully loaded model from {self.model_path} with confidence {self.confidence_threshold}"
+            )
         except Exception as e:
             logger.error(f"Failed to load model: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to load model: {e}")
 
-    def detect_from_image(self, image: np.ndarray) -> List[Dict[str, Any]]:
-        """Detect in image"""
+    def detect_position_from_image(self, image: np.ndarray) -> Position:
+        """Detect the overall position of the boxes in the image"""
         if self.model is None:
             raise HTTPException(status_code=500, detail="Model not loaded")
 
         try:
-            results = self.model.predict(image, stream=True, conf=self.confidence_threshold)
-            detections = []
+            results = self.model.predict(
+                image, stream=True, conf=self.confidence_threshold
+            )
+            fire_position = Position.NONE
+            # smoke_position = Position.NONE
+            center_x = image.shape[1] // 2
 
             for result in results:
                 boxes = result.boxes
                 if boxes is None:
                     continue
+
+                fire_box_centers = []
+                # we ignore smoke detection for now
+                # smoke_box_centers = []
                 for box in boxes:
-                    # Extract detection info
-                    conf = float(box.conf.cpu().numpy()[0])
+                    conf = box.conf.cpu().numpy()[0]
+                    if conf < self.confidence_threshold:
+                        continue
                     cls = int(box.cls.cpu().numpy()[0])
-                    xyxy = box.xyxy.cpu().numpy()[0]
+                    x1, _, x2, _ = box.xyxy.cpu().numpy()[0]
+                    box_center_x = (x1 + x2) // 2
+                    class_name = get_class_name(cls, self.model)
+                    match class_name:
+                        case "fire":
+                            fire_box_centers.append(box_center_x)
+                        case "smoke":
+                            pass
+                        case _:
+                            raise Exception(
+                                f"Unknown class detected: {class_name}, id: {cls}"
+                            )
 
-                    # Get class name
-                    class_name = (
-                        self.model.names[cls]
-                        if cls < len(self.model.names)
-                        else "unknown"
-                    )
+            if fire_box_centers:
+                fire_position = calculate_position(fire_box_centers, center_x)
+            # we ignore smoke position for now
+            # if smoke_box_centers:
+            #     smoke_position = calculate_position(smoke_box_centers, center_x)
 
-                    detection = {
-                        "class": class_name,
-                        "confidence": conf,
-                        "bbox": {
-                            "x1": float(xyxy[0]),
-                            "y1": float(xyxy[1]),
-                            "x2": float(xyxy[2]),
-                            "y2": float(xyxy[3]),
-                        },
-                        "timestamp": time.time(),
-                    }
-                    detections.append(detection)
-
-            return detections
+            return fire_position
 
         except Exception as e:
             logger.error(f"Detection error: {e}")
-            return []
+            return Position.NONE
 
     def detect_from_video_stream(
         self, video_source: int = 0
@@ -92,14 +101,15 @@ class YOLODetectionService:
                         logger.warning("Failed to read frame")
                         break
 
-                    # Detect objects in frame
-                    detections = self.detect_from_image(frame)
+                    # Detect position in frame
+                    timestamp_start = time.time()
+                    fire_position = self.detect_position_from_image(frame)
 
-                    # Yield detection event if any detections found
-                    if detections:
+                    if fire_position != Position.NONE:
                         event_data = {
-                            "type": "yolo_detection",
-                            "detections": detections,
+                            "type": DetectionKind.RGB,
+                            "position": fire_position,
+                            "timestamp_start": timestamp_start,
                             "frame_info": {
                                 "width": frame.shape[1],
                                 "height": frame.shape[0],
@@ -108,10 +118,37 @@ class YOLODetectionService:
                         }
                         yield event_data
 
-                    # Small delay to prevent overwhelming the client
-                    await asyncio.sleep(1)
+                    # we wait for the remaining time, if it didn't take the full second
+                    elapsed_time = time.time() - timestamp_start
+                    logger.info(
+                        f"Detection took {elapsed_time:.4f} seconds, waiting for remaining time"
+                    )
+                    if elapsed_time < 1:
+                        await asyncio.sleep(1 - elapsed_time)
 
             finally:
                 cap.release()
 
         return detection_generator()
+
+
+def get_class_name(cls: int, model: YOLO) -> str | None:
+    """Get class name from class index"""
+    if cls < len(model.names):
+        return model.names[cls]
+    else:
+        return None
+
+
+def calculate_position(box_centers: list[np.float32], center_x: int) -> Position:
+    """Determine overall position of `boxes_centers` from the image center `center_x`"""
+    logger.info(f"Calculating intersection for centers: {box_centers}")
+    intersection_x = sum(box_centers) / len(box_centers)
+    logger.info(f"Intersection X: {intersection_x}, Center X: {center_x}")
+
+    if abs(intersection_x - center_x) < 75:  # Tolerance for center
+        return Position.CENTER
+    elif intersection_x < center_x:
+        return Position.LEFT
+    else:
+        return Position.RIGHT
