@@ -8,19 +8,19 @@ import logging
 
 from lib.event_streaming import EventStreamer
 from lib.video_writer import VideoWriterService
-from lib.yolo_detection import YOLODetectionService
+from lib.rgb_detection import RgbDetectionService
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 rgb_video_writer: Optional[VideoWriterService] = None
-yolo_detect_service: Optional[YOLODetectionService] = None
+rgb_detect_service: Optional[RgbDetectionService] = None
 event_streamer: Optional[EventStreamer] = None
 
 
 def create_app(args: argparse.Namespace) -> FastAPI:
     """Create FastAPI application with detection service"""
-    global rgb_video_writer, yolo_detect_service, event_streamer
+    global rgb_video_writer, rgb_detect_service, event_streamer
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -39,10 +39,10 @@ def create_app(args: argparse.Namespace) -> FastAPI:
             frame_height=480,
             fps=1,
         )
-    yolo_detect_service = YOLODetectionService(
+    rgb_detect_service = RgbDetectionService(
         args.model, args.confidence, rgb_video_writer
     )
-    event_streamer = EventStreamer(yolo_detect_service)
+    event_streamer = EventStreamer(rgb_detect_service)
 
     app = FastAPI(
         title="Fire/Smoke/Hot object Detection Server",
@@ -66,27 +66,27 @@ def create_app(args: argparse.Namespace) -> FastAPI:
     async def health_check():
         return {
             "status": "healthy",
-            "model_loaded": yolo_detect_service.model is not None,
+            "model_loaded": rgb_detect_service.model is not None,
             "active_streams": len(event_streamer.active_streams),
         }
 
     @app.get("/model/info")
     async def model_info():
-        if yolo_detect_service.model is None:
+        if rgb_detect_service.model is None:
             raise HTTPException(status_code=500, detail="Model not loaded")
 
-        print(f"Model path: {yolo_detect_service}")
+        print(f"Model path: {rgb_detect_service}")
 
         return {
-            "model_path": yolo_detect_service.model_path,
-            "class_names": yolo_detect_service.model.names,
-            "input_size": getattr(yolo_detect_service.model, "imgsz", None),
+            "model_path": rgb_detect_service.model_path,
+            "class_names": rgb_detect_service.model.names,
+            "input_size": getattr(rgb_detect_service.model, "imgsz", None),
         }
 
     @app.get("/events")
     async def stream_detections(video_source: int = 0):
         """Stream detection events via SSE"""
-        if yolo_detect_service is None:
+        if rgb_detect_service is None:
             raise HTTPException(
                 status_code=500, detail="Detection service not initialized"
             )

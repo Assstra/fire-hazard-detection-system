@@ -3,7 +3,7 @@ import logging
 from typing import AsyncGenerator
 from sse_starlette import JSONServerSentEvent
 
-from lib.yolo_detection import YOLODetectionService
+from lib.rgb_detection import RgbDetectionService
 
 logger = logging.getLogger(__name__)
 
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 class EventStreamer:
     """Handles SSE event streaming for detection results"""
 
-    def __init__(self, detection_service: YOLODetectionService):
+    def __init__(self, detection_service: RgbDetectionService):
         self.detection_service = detection_service
         self.active_streams = set()
 

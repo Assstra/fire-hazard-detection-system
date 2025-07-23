@@ -12,8 +12,8 @@ from lib.video_writer import VideoWriterService
 logger = logging.getLogger(__name__)
 
 
-class YOLODetectionService:
-    """Service for fire/smoke detection using YOLOv11 model"""
+class RgbDetectionService:
+    """Service for RGB detection using YOLOv11 model"""
 
     def __init__(
         self,
