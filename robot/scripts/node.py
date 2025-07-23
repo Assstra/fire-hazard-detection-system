@@ -22,6 +22,66 @@ current_position: Optional[Pose] = None
 # Debug flag to disable patrol mode
 DEBUG: bool = False
 
+# Utility to get path of waypoint indices from current to target
+def get_waypoint_path(current_idx: int, target_idx: int, total: int) -> List[int]:
+    """
+    Returns the shortest path of waypoint indices from current_idx to target_idx (forward or backward, circular).
+    """
+    # Forward path
+    fwd_path = []
+    idx = current_idx
+    while idx != target_idx:
+        fwd_path.append(idx)
+        idx = (idx + 1) % total
+    fwd_path.append(target_idx)
+    fwd_len = len(fwd_path)
+
+    # Backward path
+    bwd_path = []
+    idx = current_idx
+    while idx != target_idx:
+        bwd_path.append(idx)
+        idx = (idx - 1 + total) % total
+    bwd_path.append(target_idx)
+    bwd_len = len(bwd_path)
+
+    # Choose shortest
+    if fwd_len <= bwd_len:
+        return fwd_path
+    else:
+        return bwd_path
+
+# Main function to go to a given waypoint from current position, visiting all waypoints in between
+def go_to_waypoint(client: actionlib.SimpleActionClient, target_idx: int) -> None:
+    global current_position
+    if current_position is None:
+        rospy.logwarn("Current position unknown, cannot navigate.")
+        return
+    start_idx, _ = get_nearest_waypoint(current_position)
+    total = len(waypoints)
+    path = get_waypoint_path(start_idx, target_idx, total)
+    rospy.loginfo(f"Navigating from waypoint {start_idx} to {target_idx} via path: {path}")
+    for idx in path:
+        send_patrol_goal(client, idx)
+        # Wait until goal is reached
+        goal_pose = waypoints[idx]
+        goal_reached = False
+        while not goal_reached and not rospy.is_shutdown():
+            state = client.get_state()
+            if state == actionlib.GoalStatus.SUCCEEDED or is_near_goal(goal_pose, current_position):
+                rospy.loginfo(f"Reached waypoint {idx}")
+                goal_reached = True
+            elif state == actionlib.GoalStatus.ABORTED:
+                rospy.logwarn(f"Goal aborted at waypoint {idx}, retrying...")
+                send_patrol_goal(client, idx)
+            rospy.sleep(0.2)
+        # Turn towards next waypoint if not last
+        if idx != target_idx:
+            next_wp = waypoints[(idx + 1) % total]
+            if current_position is not None:
+                client.cancel_all_goals()
+                turn_towards_next_waypoint(current_position, next_wp)
+
 def turn_robot(angular_z: float, duration: float = 1.0) -> None:
     pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
     twist = Twist()
@@ -298,6 +358,16 @@ if __name__ == "__main__":
     odom_sub = rospy.Subscriber("/amcl_pose", PoseWithCovarianceStamped, pose_callback)
     alert_sub = rospy.Subscriber("/alert", Pose, alert_callback)
 
+    # Check for go_to_waypoint argument
+    if "--goto" in sys.argv:
+        try:
+            idx = sys.argv.index("--goto")
+            target_idx = int(sys.argv[idx + 1])
+            client = actionlib.SimpleActionClient("move_base", MoveBaseAction)
+            client.wait_for_server()
+            go_to_waypoint(client, target_idx)
+        except (ValueError, IndexError):
+            print("Usage: --goto <waypoint_index>")
     try:
         result = robot_statemachine()
         if result:
