@@ -114,13 +114,12 @@ def turn_towards_next_waypoint(current_position: Pose, next_wp: Pose) -> None:
         yaw_diff -= 2 * math.pi
     while yaw_diff < -math.pi:
         yaw_diff += 2 * math.pi
-    # Set angular velocity proportional to angle difference
-    # Limit angular_z to a maximum of 0.3
-    max_angular_z = 0.3
-    angular_z = max(min(yaw_diff, max_angular_z), -max_angular_z)
-    # Duration can be as long as needed
-    turn_duration = abs(yaw_diff) / max(abs(angular_z), 0.01)
-    turn_robot(angular_z, duration=turn_duration)
+    # Only turn if angle difference is greater than 30 degrees (pi/6 radians)
+    if abs(yaw_diff) > math.radians(30):
+        max_angular_z = 0.3
+        angular_z = max(min(yaw_diff, max_angular_z), -max_angular_z)
+        turn_duration = abs(yaw_diff) / max(abs(angular_z), 0.01)
+        turn_robot(angular_z, duration=turn_duration)
 
 
 def make_waypoint(
