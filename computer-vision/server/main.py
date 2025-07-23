@@ -1,23 +1,26 @@
 import argparse
 from contextlib import asynccontextmanager
+import time
 from typing import Optional
 from fastapi import FastAPI, HTTPException
 from sse_starlette.sse import EventSourceResponse
 import logging
 
 from lib.event_streaming import EventStreamer
+from lib.video_writer import VideoWriterService
 from lib.yolo_detection import YOLODetectionService
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+rgb_video_writer: Optional[VideoWriterService] = None
 yolo_detect_service: Optional[YOLODetectionService] = None
 event_streamer: Optional[EventStreamer] = None
 
 
 def create_app(args: argparse.Namespace) -> FastAPI:
     """Create FastAPI application with detection service"""
-    global yolo_detect_service, event_streamer
+    global rgb_video_writer, yolo_detect_service, event_streamer
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -25,9 +28,20 @@ def create_app(args: argparse.Namespace) -> FastAPI:
         # Cleanup on shutdown
         if event_streamer:
             event_streamer.active_streams.clear()
+        if rgb_video_writer:
+            rgb_video_writer.release()
         logger.info("Server shutdown complete")
 
-    yolo_detect_service = YOLODetectionService(args.model, args.confidence)
+    if args.video_output:
+        rgb_video_writer = VideoWriterService(
+            output_path=f"{args.video_output}/{time.time_ns()}_rgb.mp4",
+            frame_width=640,
+            frame_height=480,
+            fps=1,
+        )
+    yolo_detect_service = YOLODetectionService(
+        args.model, args.confidence, rgb_video_writer
+    )
     event_streamer = EventStreamer(yolo_detect_service)
 
     app = FastAPI(
@@ -106,6 +120,13 @@ def parse_args():
         type=float,
         default=0.25,
         help="Sets the minimum confidence threshold for detections (default: 0.25)",
+    )
+    parser.add_argument(
+        "--video-output",
+        "-v",
+        type=str,
+        default=None,
+        help="Path to save the output video with detections (default: None, no video output)",
     )
 
     return parser.parse_args()

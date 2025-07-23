@@ -5,8 +5,9 @@ import cv2
 from fastapi import HTTPException
 import numpy as np
 from ultralytics import YOLO
-from typing import AsyncGenerator, Dict, Any
-from lib import DetectionKind, Position
+from typing import AsyncGenerator, Dict, Any, Optional
+from lib import DetectionKind, Position, utils_frame_text
+from lib.video_writer import VideoWriterService
 
 logger = logging.getLogger(__name__)
 
@@ -14,11 +15,17 @@ logger = logging.getLogger(__name__)
 class YOLODetectionService:
     """Service for fire/smoke detection using YOLOv11 model"""
 
-    def __init__(self, model_path: str, confidence_threshold: float):
+    def __init__(
+        self,
+        model_path: str,
+        confidence_threshold: float,
+        video_writer_svc: Optional[VideoWriterService] = None,
+    ):
         self.model_path = model_path
         self.confidence_threshold = confidence_threshold
         self.model = None
         self.load_model()
+        self.video_writer_svc = video_writer_svc
 
     def load_model(self):
         """Load YOLOv11 model"""
@@ -41,7 +48,6 @@ class YOLODetectionService:
                 image, stream=True, conf=self.confidence_threshold
             )
             fire_position = Position.NONE
-            # smoke_position = Position.NONE
             center_x = image.shape[1] // 2
 
             for result in results:
@@ -50,15 +56,13 @@ class YOLODetectionService:
                     continue
 
                 fire_box_centers = []
-                # we ignore smoke detection for now
-                # smoke_box_centers = []
                 for box in boxes:
                     conf = box.conf.cpu().numpy()[0]
                     if conf < self.confidence_threshold:
                         continue
-                    cls = int(box.cls.cpu().numpy()[0])
                     x1, _, x2, _ = box.xyxy.cpu().numpy()[0]
                     box_center_x = (x1 + x2) // 2
+                    cls = int(box.cls.cpu().numpy()[0])
                     class_name = get_class_name(cls, self.model)
                     match class_name:
                         case "fire":
@@ -72,9 +76,13 @@ class YOLODetectionService:
 
             if fire_box_centers:
                 fire_position = calculate_position(fire_box_centers, center_x)
-            # we ignore smoke position for now
-            # if smoke_box_centers:
-            #     smoke_position = calculate_position(smoke_box_centers, center_x)
+
+            if self.video_writer_svc:
+                frame_with_boxes = self.add_bounding_boxes_to_frame(image, boxes)
+                w = self.video_writer_svc.get_width()
+                h = self.video_writer_svc.get_height()
+                frame_with_boxes = cv2.resize(frame_with_boxes, (w, h))
+                self.video_writer_svc.write_frame(frame_with_boxes)
 
             return fire_position
 
@@ -130,6 +138,30 @@ class YOLODetectionService:
                 cap.release()
 
         return detection_generator()
+
+    def add_bounding_boxes_to_frame(
+        self, frame: np.ndarray, bounding_boxes: list
+    ) -> np.ndarray:
+        """Draw bounding boxes on the frame"""
+        for box in bounding_boxes:
+            x1, y1, x2, y2 = box.xyxy.cpu().numpy()[0]
+            class_name = get_class_name(int(box.cls.cpu().numpy()[0]), self.model)
+            match class_name:
+                case "fire":
+                    color = (0, 0, 255)
+                case "smoke":
+                    color = (128, 128, 128)
+                case _:
+                    color = (255, 0, 255)
+            cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
+            utils_frame_text(frame, class_name, (int(x1), int(y1) - 10), color)
+
+        ts = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+        # outline text
+        utils_frame_text(frame, ts, (10, 30), (255, 255, 255), 3)
+        # main text
+        utils_frame_text(frame, ts, (10, 30), (255, 0, 0))
+        return frame
 
 
 def get_class_name(cls: int, model: YOLO) -> str | None:
