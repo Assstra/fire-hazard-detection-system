@@ -22,106 +22,6 @@ current_position: Optional[Pose] = None
 # Debug flag to disable patrol mode
 DEBUG: bool = False
 
-# Utility to get path of waypoint indices from current to target
-def get_waypoint_path(current_idx: int, target_idx: int, total: int) -> List[int]:
-    """
-    Returns the shortest path of waypoint indices from current_idx to target_idx (forward or backward, circular).
-    """
-    # Forward path
-    fwd_path = []
-    idx = current_idx
-    while idx != target_idx:
-        fwd_path.append(idx)
-        idx = (idx + 1) % total
-    fwd_path.append(target_idx)
-    fwd_len = len(fwd_path)
-
-    # Backward path
-    bwd_path = []
-    idx = current_idx
-    while idx != target_idx:
-        bwd_path.append(idx)
-        idx = (idx - 1 + total) % total
-    bwd_path.append(target_idx)
-    bwd_len = len(bwd_path)
-
-    # Choose shortest
-    if fwd_len <= bwd_len:
-        return fwd_path
-    else:
-        return bwd_path
-
-# Main function to go to a given waypoint from current position, visiting all waypoints in between
-def go_to_waypoint(client: actionlib.SimpleActionClient, target_idx: int) -> None:
-    global current_position
-    if current_position is None:
-        rospy.logwarn("Current position unknown, cannot navigate.")
-        return
-    start_idx, _ = get_nearest_waypoint(current_position)
-    total = len(waypoints)
-    path = get_waypoint_path(start_idx, target_idx, total)
-    rospy.loginfo(f"Navigating from waypoint {start_idx} to {target_idx} via path: {path}")
-    for idx in path:
-        send_patrol_goal(client, idx)
-        # Wait until goal is reached
-        goal_pose = waypoints[idx]
-        goal_reached = False
-        while not goal_reached and not rospy.is_shutdown():
-            state = client.get_state()
-            if state == actionlib.GoalStatus.SUCCEEDED or is_near_goal(goal_pose, current_position):
-                rospy.loginfo(f"Reached waypoint {idx}")
-                goal_reached = True
-            elif state == actionlib.GoalStatus.ABORTED:
-                rospy.logwarn(f"Goal aborted at waypoint {idx}, retrying...")
-                send_patrol_goal(client, idx)
-            rospy.sleep(0.2)
-        # Turn towards next waypoint if not last
-        if idx != target_idx:
-            next_wp = waypoints[(idx + 1) % total]
-            if current_position is not None:
-                client.cancel_all_goals()
-                turn_towards_next_waypoint(current_position, next_wp)
-
-def turn_robot(angular_z: float, duration: float = 1.0) -> None:
-    pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
-    twist = Twist()
-    twist.angular.z = angular_z
-    print(twist)
-    rospy.loginfo(f"Turning robot with angular_z={angular_z} for {duration}s")
-    rate = rospy.Rate(10)  # 10 Hz
-    end_time = rospy.Time.now() + rospy.Duration(duration)
-    while rospy.Time.now() < end_time:
-        pub.publish(twist)
-        rate.sleep()
-    # Stop turning after duration
-    twist.angular.z = 0.0
-    pub.publish(twist)
-
-def turn_towards_next_waypoint(current_position: Pose, next_wp: Pose) -> None:
-    """
-    Turns the robot to face the direction of the next waypoint.
-    """
-    dx = next_wp.position.x - current_position.position.x
-    dy = next_wp.position.y - current_position.position.y
-    desired_yaw = math.atan2(dy, dx)
-    # Get current yaw from quaternion
-    import tf.transformations
-    q = [current_position.orientation.x, current_position.orientation.y, current_position.orientation.z, current_position.orientation.w]
-    _, _, current_yaw = tf.transformations.euler_from_quaternion(q)
-    yaw_diff = desired_yaw - current_yaw
-    # Normalize angle to [-pi, pi]
-    while yaw_diff > math.pi:
-        yaw_diff -= 2 * math.pi
-    while yaw_diff < -math.pi:
-        yaw_diff += 2 * math.pi
-    # Only turn if angle difference is greater than 30 degrees (pi/6 radians)
-    if abs(yaw_diff) > math.radians(30):
-        max_angular_z = 0.3
-        angular_z = max(min(yaw_diff, max_angular_z), -max_angular_z)
-        turn_duration = abs(yaw_diff) / max(abs(angular_z), 0.01)
-        turn_robot(angular_z, duration=turn_duration)
-
-
 def make_waypoint(
     x: float, y: float, z: float, ox: float, oy: float, oz: float, ow: float
 ) -> Pose:
@@ -157,6 +57,7 @@ waypoint_W2: Pose = make_waypoint(-50.0, 3.0, 0.0, 0, 0, -0.707, 0.707)
 waypoint_W3: Pose = make_waypoint(-35.0, 2.0, 0.0, 0, 0, -0.707, 0.707)
 waypoint_W4: Pose = make_waypoint(20.0 ,0.0, 0.0, 0, 0, -0.707, 0.707)
 
+
 waypoints: List[Pose] = [
     waypoint_SW,
     waypoint_S1,
@@ -179,6 +80,104 @@ waypoints: List[Pose] = [
     waypoint_W3,
     waypoint_W4,
 ]
+
+
+def get_waypoint_path(current_idx: int, target_idx: int, total: int) -> List[int]:
+    # Forward path
+    fwd_path = []
+    idx = current_idx
+    while idx != target_idx:
+        fwd_path.append(idx)
+        idx = (idx + 1) % total
+    fwd_path.append(target_idx)
+    fwd_len = len(fwd_path)
+
+    # Backward path
+    bwd_path = []
+    idx = current_idx
+    while idx != target_idx:
+        bwd_path.append(idx)
+        idx = (idx - 1 + total) % total
+    bwd_path.append(target_idx)
+    bwd_len = len(bwd_path)
+
+    # Choose shortest
+    if fwd_len <= bwd_len:
+        return fwd_path
+    else:
+        return bwd_path
+
+
+def go_to_waypoint(client: actionlib.SimpleActionClient, target_waypoint: int) -> None:
+    global current_position
+    if current_position is None:
+        rospy.logwarn("Current position unknown, cannot navigate.")
+        return
+    start_idx, _ = get_nearest_waypoint(current_position)
+    total = len(waypoints)
+    path = get_waypoint_path(start_idx, target_waypoint, total)
+    rospy.loginfo(f"Navigating from waypoint {start_idx} to {target_waypoint} via path: {path}")
+    for idx, waypoint in enumerate(path):
+        send_patrol_goal(client, waypoint)
+        # Wait until goal is reached
+        goal_pose = waypoints[waypoint]
+        goal_active = True
+        while goal_active and not rospy.is_shutdown():
+            state = client.get_state()
+            if state == actionlib.GoalStatus.SUCCEEDED or is_near_goal(goal_pose, current_position):
+                rospy.loginfo(f"Reached waypoint {waypoint}")
+                goal_active = False
+            elif state == actionlib.GoalStatus.ABORTED:
+                rospy.logwarn(f"Goal aborted at waypoint {waypoint}, retrying...")
+                send_patrol_goal(client, waypoint)
+            rospy.sleep(0.2)
+        # Turn towards next waypoint if not last
+        if waypoint != target_waypoint:
+            next_wp = waypoints[path[idx + 1]]
+            if current_position is not None:
+                client.cancel_all_goals()
+                turn_towards_next_waypoint(current_position, next_wp)
+
+
+def turn_robot(angular_z: float, duration: float = 1.0) -> None:
+    pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
+    twist = Twist()
+    twist.angular.z = angular_z
+    print(twist)
+    rate = rospy.Rate(10)  # 10 Hz
+    end_time = rospy.Time.now() + rospy.Duration(duration)
+    while rospy.Time.now() < end_time:
+        pub.publish(twist)
+        rate.sleep()
+    # Stop turning after duration
+    twist.angular.z = 0.0
+    pub.publish(twist)
+
+
+def turn_towards_next_waypoint(current_position: Pose, next_wp: Pose) -> None:
+    """
+    Turns the robot to face the direction of the next waypoint.
+    """
+    dx = next_wp.position.x - current_position.position.x
+    dy = next_wp.position.y - current_position.position.y
+    desired_yaw = math.atan2(dy, dx)
+    # Get current yaw from quaternion
+    import tf.transformations
+    q = [current_position.orientation.x, current_position.orientation.y, current_position.orientation.z, current_position.orientation.w]
+    _, _, current_yaw = tf.transformations.euler_from_quaternion(q)
+    yaw_diff = desired_yaw - current_yaw
+    # Normalize angle to [-pi, pi]
+    while yaw_diff > math.pi:
+        yaw_diff -= 2 * math.pi
+    while yaw_diff < -math.pi:
+        yaw_diff += 2 * math.pi
+    # Only turn if angle difference is greater than 30 degrees (pi/6 radians)
+    if abs(yaw_diff) > math.radians(30):
+        max_angular_z = 0.3
+        angular_z = max(min(yaw_diff, max_angular_z), -max_angular_z)
+        turn_duration = abs(yaw_diff) / max(abs(angular_z), 0.01)
+        rospy.loginfo(f"Turning robot to waypoint={waypoints.index(next_wp)} with angular_z={angular_z} for {turn_duration}s")
+        turn_robot(angular_z, duration=turn_duration)
 
 
 def get_nearest_waypoint(pose: Pose) -> Tuple[int, float]:
@@ -284,8 +283,12 @@ def handle_alert(
     alert_pose: Pose,
 ) -> Tuple[bool, Optional[str], bool]:  
     global current_position
+    rospy.loginfo("Receiving ALERT goal: {}".format(alert_pose))
     if not goal_active or current_goal != "ALERT":
         client.cancel_all_goals()
+        if alert_pose is not None and current_position is not None:
+            target_idx, _ = get_nearest_waypoint(alert_pose)
+            go_to_waypoint(client, target_idx)
         send_alert_goal(client, alert_pose)
         goal_active = True
         current_goal = "ALERT"
@@ -334,6 +337,8 @@ def robot_statemachine() -> bool:
             if alert_done:
                 current_state = RobotState.PATROL
                 alert_pose = None
+                nearest_waypoint = get_nearest_waypoint(current_position)
+                waypoint_idx = nearest_waypoint[0]
 
         elif current_state == RobotState.PATROL and not DEBUG:
             goal_active, current_goal, waypoint_idx = handle_patrol(
@@ -365,8 +370,10 @@ if __name__ == "__main__":
             client = actionlib.SimpleActionClient("move_base", MoveBaseAction)
             client.wait_for_server()
             go_to_waypoint(client, target_idx)
-        except (ValueError, IndexError):
-            print("Usage: --goto <waypoint_index>")
+        except (ValueError, IndexError) as e:
+            rospy.logerr(e)
+            rospy.logerr("Usage: --goto <waypoint_index>")
+            exit(1)
     try:
         result = robot_statemachine()
         if result:
