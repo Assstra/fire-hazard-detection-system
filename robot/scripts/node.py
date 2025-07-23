@@ -5,7 +5,7 @@ import rospy
 import sys
 import actionlib
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
-from geometry_msgs.msg import Pose, PoseWithCovarianceStamped
+from geometry_msgs.msg import Pose, PoseWithCovarianceStamped, Twist
 from enum import Enum
 from typing import Optional, List, Tuple
 
@@ -21,6 +21,46 @@ current_position: Optional[Pose] = None
 
 # Debug flag to disable patrol mode
 DEBUG: bool = False
+
+def turn_robot(angular_z: float, duration: float = 1.0) -> None:
+    pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
+    twist = Twist()
+    twist.angular.z = angular_z
+    print(twist)
+    rospy.loginfo(f"Turning robot with angular_z={angular_z} for {duration}s")
+    rate = rospy.Rate(10)  # 10 Hz
+    end_time = rospy.Time.now() + rospy.Duration(duration)
+    while rospy.Time.now() < end_time:
+        pub.publish(twist)
+        rate.sleep()
+    # Stop turning after duration
+    twist.angular.z = 0.0
+    pub.publish(twist)
+
+def turn_towards_next_waypoint(current_position: Pose, next_wp: Pose) -> None:
+    """
+    Turns the robot to face the direction of the next waypoint.
+    """
+    dx = next_wp.position.x - current_position.position.x
+    dy = next_wp.position.y - current_position.position.y
+    desired_yaw = math.atan2(dy, dx)
+    # Get current yaw from quaternion
+    import tf.transformations
+    q = [current_position.orientation.x, current_position.orientation.y, current_position.orientation.z, current_position.orientation.w]
+    _, _, current_yaw = tf.transformations.euler_from_quaternion(q)
+    yaw_diff = desired_yaw - current_yaw
+    # Normalize angle to [-pi, pi]
+    while yaw_diff > math.pi:
+        yaw_diff -= 2 * math.pi
+    while yaw_diff < -math.pi:
+        yaw_diff += 2 * math.pi
+    # Set angular velocity proportional to angle difference
+    # Limit angular_z to a maximum of 0.3
+    max_angular_z = 0.3
+    angular_z = max(min(yaw_diff, max_angular_z), -max_angular_z)
+    # Duration can be as long as needed
+    turn_duration = abs(yaw_diff) / max(abs(angular_z), 0.01)
+    turn_robot(angular_z, duration=turn_duration)
 
 
 def make_waypoint(
@@ -166,6 +206,11 @@ def handle_patrol(
         waypoint_idx = (waypoint_idx + 1) % len(waypoints)
         goal_active = False
         current_goal = None
+        # Turn towards the next waypoint
+        next_wp = waypoints[waypoint_idx]
+        if current_position is not None:
+            client.cancel_all_goals()
+            turn_towards_next_waypoint(current_position, next_wp)
     elif state == actionlib.GoalStatus.ABORTED:
         rospy.logwarn("Goal aborted, retrying waypoint: {}".format(waypoint_idx))
         goal_active = False
