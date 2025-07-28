@@ -11,23 +11,28 @@ from typing import Optional, List, Tuple
 
 
 class RobotState(Enum):
-    PATROL = 1
-    ALERT = 2
-    SEARCH = 3
+    PATROL = 1  # Normal patrol mode
+    ALERT = 2  # Responding to alert
+    SEARCH = 3  # Searching for hazard
 
 
-current_state: RobotState = RobotState.PATROL
-alert_pose: Optional[Pose] = None
-current_goal: Optional[int] = None  # can also be "ALERT" (str), but default is int
-current_position: Optional[Pose] = None
+current_state: RobotState = RobotState.PATROL  # Current robot state
+alert_pose: Optional[Pose] = None  # Pose to respond to in ALERT state
+current_goal: Optional[int] = None  # Current goal index or "ALERT"
+current_position: Optional[Pose] = None  # Latest known robot position
 
 
 # Debug flag to disable patrol mode
-DEBUG: bool = False
+DEBUG: bool = False  # If True, disables patrol mode for testing
 
 
 # Function to load waypoints from a txt file
 def load_waypoints_from_file(filename: str) -> List[Pose]:
+    """
+    Loads waypoints from a text file. Each line should be in the format:
+    name: x, y
+    Returns a list of Pose objects.
+    """
     waypoints = []
     try:
         with open(filename, "r") as f:
@@ -65,6 +70,9 @@ def load_waypoints_from_file(filename: str) -> List[Pose]:
 def make_waypoint(
     x: float, y: float, z: float, ox: float, oy: float, oz: float, ow: float
 ) -> Pose:
+    """
+    Creates a Pose object from position and orientation values.
+    """
     pose = Pose()
     pose.position.x = x
     pose.position.y = y
@@ -76,10 +84,14 @@ def make_waypoint(
     return pose
 
 
-waypoints: List[Pose] = []
+waypoints: List[Pose] = []  # List of loaded waypoints
 
 
 def get_waypoint_path(current_idx: int, target_idx: int, total: int) -> List[int]:
+    """
+    Computes the shortest path (forward or backward) between two waypoints.
+    Returns a list of waypoint indices.
+    """
     # Forward path
     fwd_path = []
     idx = current_idx
@@ -106,6 +118,10 @@ def get_waypoint_path(current_idx: int, target_idx: int, total: int) -> List[int
 
 
 def go_to_waypoint(client: actionlib.SimpleActionClient, target_waypoint: int) -> None:
+    """
+    Navigates the robot from its current position to the target waypoint,
+    following the shortest path through waypoints.
+    """
     global current_position
     if current_position is None:
         rospy.logwarn("Current position unknown, cannot navigate.")
@@ -141,6 +157,9 @@ def go_to_waypoint(client: actionlib.SimpleActionClient, target_waypoint: int) -
 
 
 def turn_robot(angular_z: float, duration: float = 1.0) -> None:
+    """
+    Publishes Twist messages to /cmd_vel to turn the robot at a fixed angular velocity for a given duration.
+    """
     pub = rospy.Publisher("/cmd_vel", Twist, queue_size=10)
     twist = Twist()
     twist.angular.z = angular_z
@@ -192,6 +211,9 @@ def turn_to_position(current_position: Pose, next_position: Pose) -> None:
 
 
 def turn_degree(degrees: float) -> None:
+    """
+    Turns the robot by a specified number of degrees (positive for left, negative for right).
+    """
     radians = math.radians(degrees)
     # Use sign of radians for direction, magnitude for speed (fixed at 0.3)
     angular_z = 0.3 if radians >= 0 else -0.3
@@ -205,7 +227,8 @@ def turn_degree(degrees: float) -> None:
 
 def get_nearest_waypoint(pose: Pose) -> Tuple[int, float]:
     """
-    Returns the index and distance of the nearest waypoint to the given pose.
+    Finds the nearest waypoint to the given pose.
+    Returns (index, distance).
     """
     min_dist = float("inf")
     min_idx = -1
@@ -220,6 +243,10 @@ def get_nearest_waypoint(pose: Pose) -> Tuple[int, float]:
 
 
 def alert_callback(msg: Pose) -> None:
+    """
+    ROS subscriber callback for alert messages.
+    Sets robot state to ALERT and stores alert position.
+    """
     global current_state, alert_pose
     rospy.loginfo(f"Alert received at position: x={msg.position.x}, y={msg.position.y}")
     alert_pose = msg
@@ -227,6 +254,10 @@ def alert_callback(msg: Pose) -> None:
 
 
 def pose_callback(msg: PoseWithCovarianceStamped) -> None:
+    """
+    ROS subscriber callback for robot pose updates.
+    Updates current_position.
+    """
     global current_position
     current_position = msg.pose.pose
     return
@@ -235,6 +266,9 @@ def pose_callback(msg: PoseWithCovarianceStamped) -> None:
 def is_near_goal(
     goal_pose: Pose, current_pose: Optional[Pose], threshold: float = 0.75
 ) -> bool:
+    """
+    Checks if the robot is within a threshold distance of the goal pose.
+    """
     if current_pose is None:
         return False
     dx = goal_pose.position.x - current_pose.position.x
@@ -244,6 +278,9 @@ def is_near_goal(
 
 
 def send_patrol_goal(client: actionlib.SimpleActionClient, waypoint_idx: int) -> int:
+    """
+    Sends a MoveBaseGoal to the navigation stack for the given waypoint index.
+    """
     goal = MoveBaseGoal()
     goal.target_pose.header.frame_id = "map"
     goal.target_pose.header.stamp = rospy.Time.now()
@@ -254,6 +291,9 @@ def send_patrol_goal(client: actionlib.SimpleActionClient, waypoint_idx: int) ->
 
 
 def send_alert_goal(client: actionlib.SimpleActionClient, alert_pose: Pose) -> None:
+    """
+    Sends a MoveBaseGoal to the navigation stack for the alert position.
+    """
     goal = MoveBaseGoal()
     goal.target_pose.header.frame_id = "map"
     goal.target_pose.header.stamp = rospy.Time.now()
@@ -268,6 +308,11 @@ def handle_patrol(
     current_goal: Optional[int],
     waypoint_idx: int,
 ) -> Tuple[bool, Optional[int], int]:
+    """
+    Handles robot behavior in PATROL state.
+    Sends patrol goals, checks for completion, and turns towards next waypoint.
+    Returns updated (goal_active, current_goal, waypoint_idx).
+    """
     global current_position
     goal_pose = waypoints[waypoint_idx]
     if not goal_active or current_goal != waypoint_idx:
@@ -303,6 +348,11 @@ def handle_alert(
     current_goal: Optional[str],
     alert_pose: Pose,
 ) -> Tuple[bool, Optional[str], bool]:
+    """
+    Handles robot behavior in ALERT state.
+    Navigates to alert position, turns to face it, and returns status.
+    Returns updated (goal_active, current_goal, alert_done).
+    """
     global current_position
     if not goal_active or current_goal != "ALERT":
         client.cancel_all_goals()
@@ -337,9 +387,12 @@ def handle_alert(
 
 
 def handle_search(client: actionlib.SimpleActionClient) -> bool:
+    """
+    Handles robot behavior in SEARCH state.
+    Performs a search and returns True when done.
+    """
     global current_position
-    # Implement search logic here, e.g., turn in place or move in a pattern
-    # For now, just turn 90 degrees
+    # TODO: implement a more complex search pattern
     turn_degree(45)
     turn_degree(-90)
     turn_degree(45)
@@ -349,6 +402,10 @@ def handle_search(client: actionlib.SimpleActionClient) -> bool:
 
 
 def robot_statemachine() -> bool:
+    """
+    Main robot state machine loop.
+    Handles transitions between PATROL, ALERT, and SEARCH states.
+    """
     global current_state, alert_pose, current_goal, current_position, DEBUG
 
     client = actionlib.SimpleActionClient("move_base", MoveBaseAction)
@@ -395,6 +452,10 @@ def robot_statemachine() -> bool:
 
 
 if __name__ == "__main__":
+    """
+    Main entry point for the robot node.
+    Initializes ROS node, loads waypoints, subscribes to topics, and starts state machine.
+    """
     # Check for debug argument
     if "--debug" in sys.argv or "-d" in sys.argv:
         DEBUG = True
