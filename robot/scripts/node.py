@@ -1,6 +1,11 @@
+
 #!/usr/bin/env python
 
+# Standard library imports
 import math
+import sys
+
+# ROS imports
 import rospy
 import sys
 import actionlib
@@ -44,7 +49,7 @@ def load_waypoints_from_file(filename: str) -> List[Pose]:
                 if ":" not in line or "," not in line:
                     rospy.logwarn(f"Skipping invalid waypoint line: {line}")
                     continue
-                name_part, coords_part = line.split(":", 1)
+                _, coords_part = line.split(":", 1)
                 coords = coords_part.split(",")
                 if len(coords) < 2:
                     rospy.logwarn(f"Skipping invalid waypoint line: {line}")
@@ -56,12 +61,7 @@ def load_waypoints_from_file(filename: str) -> List[Pose]:
                     rospy.logwarn(f"Skipping invalid waypoint coordinates: {coords}")
                     continue
                 # Default values
-                z = 0.0
-                ox = 0.0
-                oy = 0.0
-                oz = 0.0
-                ow = 1.0
-                waypoints.append(make_waypoint(x, y, z, ox, oy, oz, ow))
+                waypoints.append(make_waypoint(x, y, 0.0, 0.0, 0.0, 0.0, 1.0))
     except Exception as e:
         rospy.logerr(f"Failed to load waypoints from {filename}: {e}")
     return waypoints
