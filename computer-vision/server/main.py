@@ -16,6 +16,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 rgb_video_writer: Optional[VideoWriterService] = None
+ir_video_writer: Optional[VideoWriterService] = None
 rgb_detect_service: Optional[RgbDetectionService] = None
 event_streamer: Optional[EventStreamer] = None
 video_rgb_stream_service: Optional[VideoStreamingService] = None
@@ -46,13 +47,18 @@ def create_app(args: argparse.Namespace) -> FastAPI:
             frame_height=480,
             fps=1,
         )
+        # ir_video_writer = VideoWriterService(
+        #     output_path=f"{args.video_output}/{time.time_ns()}_ir.mp4",
+        #     frame_width=640,
+        #     frame_height=480,
+        #     fps=1,
+        # )
 
     video_rgb_stream_service = VideoStreamingService()
-
-    # Create RGB detection service with video streaming service
     rgb_detect_service = RgbDetectionService(
         args.model, args.confidence, rgb_video_writer, video_rgb_stream_service
     )
+    # ir_detect_service = InfraredDetectionService(ir_video_writer)
     event_streamer = EventStreamer(rgb_detect_service)
 
     app = FastAPI(
@@ -86,8 +92,6 @@ def create_app(args: argparse.Namespace) -> FastAPI:
     async def model_info():
         if rgb_detect_service.model is None:
             raise HTTPException(status_code=500, detail="Model not loaded")
-
-        print(f"Model path: {rgb_detect_service}")
 
         return {
             "model_path": rgb_detect_service.model_path,

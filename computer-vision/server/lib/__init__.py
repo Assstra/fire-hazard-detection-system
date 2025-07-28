@@ -5,6 +5,7 @@ from strenum import StrEnum
 
 class DetectionKind(StrEnum):
     RGB = "rgb_detection"
+    IR = "ir_detection"
 
 
 class Position(StrEnum):
