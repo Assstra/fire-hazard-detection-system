@@ -139,6 +139,7 @@ def go_to_waypoint(client: actionlib.SimpleActionClient, target_waypoint: int) -
                 client.cancel_all_goals()
                 turn_to_position(current_position, next_wp)
 
+
 def turn_robot(angular_z: float, duration: float = 1.0) -> None:
     pub = rospy.Publisher("/cmd_vel", Twist, queue_size=10)
     twist = Twist()
@@ -152,6 +153,7 @@ def turn_robot(angular_z: float, duration: float = 1.0) -> None:
     twist.angular.z = 0.0
     pub.publish(twist)
 
+
 def turn_to_position(current_position: Pose, next_position: Pose) -> None:
     """
     Turns the robot to face the direction of the next waypoint.
@@ -160,6 +162,7 @@ def turn_to_position(current_position: Pose, next_position: Pose) -> None:
     dy = next_position.position.y - current_position.position.y
     desired_yaw = math.atan2(dy, dx)
     import tf.transformations
+
     q = [
         current_position.orientation.x,
         current_position.orientation.y,
@@ -178,10 +181,15 @@ def turn_to_position(current_position: Pose, next_position: Pose) -> None:
     turn_duration = abs(yaw_diff) / 0.3
     try:
         wp = waypoints.index(next_position)
-        rospy.loginfo(f"Turning robot to waypoint={wp} with angular_z={angular_z} for {turn_duration:.2f}s")
+        rospy.loginfo(
+            f"Turning robot to waypoint={wp} with angular_z={angular_z} for {turn_duration:.2f}s"
+        )
     except ValueError:
-        rospy.loginfo(f"Turning robot to position={next_position} with angular_z={angular_z} for {turn_duration:.2f}s")
+        rospy.loginfo(
+            f"Turning robot to position={next_position} with angular_z={angular_z} for {turn_duration:.2f}s"
+        )
     turn_robot(angular_z, duration=turn_duration)
+
 
 def turn_degree(degrees: float) -> None:
     radians = math.radians(degrees)
@@ -189,8 +197,11 @@ def turn_degree(degrees: float) -> None:
     angular_z = 0.3 if radians >= 0 else -0.3
     # Duration is proportional to angle
     turn_duration = abs(radians) / 0.3
-    rospy.loginfo(f"Turning robot {degrees} degrees ({radians:.2f} rad) with angular_z={angular_z} for {turn_duration:.2f}s")
+    rospy.loginfo(
+        f"Turning robot {degrees} degrees ({radians:.2f} rad) with angular_z={angular_z} for {turn_duration:.2f}s"
+    )
     turn_robot(angular_z, duration=turn_duration)
+
 
 def get_nearest_waypoint(pose: Pose) -> Tuple[int, float]:
     """
@@ -324,6 +335,7 @@ def handle_alert(
         current_goal = None
     return goal_active, current_goal, alert_done
 
+
 def handle_search(client: actionlib.SimpleActionClient) -> bool:
     global current_position
     # Implement search logic here, e.g., turn in place or move in a pattern
@@ -365,7 +377,7 @@ def robot_statemachine() -> bool:
             goal_active, current_goal, waypoint_idx = handle_patrol(
                 client, goal_active, current_goal, waypoint_idx
             )
-        
+
         elif current_state == RobotState.SEARCH:
             rospy.loginfo("Searching for fire hazard...")
 
