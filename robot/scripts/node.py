@@ -19,8 +19,44 @@ alert_pose: Optional[Pose] = None
 current_goal: Optional[int] = None  # can also be "ALERT" (str), but default is int
 current_position: Optional[Pose] = None
 
+
 # Debug flag to disable patrol mode
 DEBUG: bool = False
+
+# Function to load waypoints from a txt file
+def load_waypoints_from_file(filename: str) -> List[Pose]:
+    waypoints = []
+    try:
+        with open(filename, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                # Expected format: `name: x, y`
+                if ':' not in line or ',' not in line:
+                    rospy.logwarn(f"Skipping invalid waypoint line: {line}")
+                    continue
+                name_part, coords_part = line.split(':', 1)
+                coords = coords_part.split(',')
+                if len(coords) < 2:
+                    rospy.logwarn(f"Skipping invalid waypoint line: {line}")
+                    continue
+                try:
+                    x = float(coords[0].strip())
+                    y = float(coords[1].strip())
+                except ValueError:
+                    rospy.logwarn(f"Skipping invalid waypoint coordinates: {coords}")
+                    continue
+                # Default values
+                z = 0.0
+                ox = 0.0
+                oy = 0.0
+                oz = 0.0
+                ow = 1.0
+                waypoints.append(make_waypoint(x, y, z, ox, oy, oz, ow))
+    except Exception as e:
+        rospy.logerr(f"Failed to load waypoints from {filename}: {e}")
+    return waypoints
 
 def make_waypoint(
     x: float, y: float, z: float, ox: float, oy: float, oz: float, ow: float
@@ -36,50 +72,7 @@ def make_waypoint(
     return pose
 
 
-waypoint_SW: Pose = make_waypoint(86.0, 0.0, 0.0, 0, 0, 0, 1)
-waypoint_S1: Pose = make_waypoint(87.0, 12.0, 0.0, 0, 0, 0.707, 0.707)
-waypoint_S2: Pose = make_waypoint(85.0, 20.0, 0.0, 0, 0, 0.707, 0.707)
-waypoint_SE: Pose = make_waypoint(84.5, 50.0, 0.0, 0, 0, 0.707, 0.707)
-waypoint_E1: Pose = make_waypoint(57.5, 49.0, 0.0, 0, 0, -1, 0)
-waypoint_E2: Pose = make_waypoint(55, 43.0, 0.0, 0, 0, -1, 0)
-waypoint_E3: Pose = make_waypoint(43.0, 43.0, 0.0, 0, 0, -1, 0)
-waypoint_E4: Pose = make_waypoint(35.0, 44.0, 0.0, 0, 0, -1, 0)
-waypoint_E5: Pose = make_waypoint(15.0, 45.0, 0.0, 0, 0, -1, 0)
-waypoint_E6: Pose = make_waypoint(15.0, 51.0, 0.0, 0, 0, -1, 0)
-waypoint_E7: Pose = make_waypoint(-35.0, 52.5, 0.0, 0, 0, -1, 0)
-waypoint_E8: Pose = make_waypoint(-35.0, 45.0, 0.0, 0, 0, -1, 0)
-waypoint_E9: Pose = make_waypoint(-68.0, 47.5, 0.0, 0, 0, -1, 0)
-waypoint_E10: Pose = make_waypoint(-68.0, 55, 0.0, 0, 0, -1, 0)
-waypoint_NE: Pose = make_waypoint(-105.0, 52.5, 0.0, 0, 0, -1, 0)
-waypoint_NW: Pose = make_waypoint(-105.0, 5.0, 0.0, 0, 0, -0.707, 0.707)
-waypoint_W1: Pose = make_waypoint(-80.0, 4.0, 0.0, 0, 0, -0.707, 0.707)
-waypoint_W2: Pose = make_waypoint(-50.0, 3.0, 0.0, 0, 0, -0.707, 0.707)
-waypoint_W3: Pose = make_waypoint(-35.0, 2.0, 0.0, 0, 0, -0.707, 0.707)
-waypoint_W4: Pose = make_waypoint(20.0 ,0.0, 0.0, 0, 0, -0.707, 0.707)
-
-
-waypoints: List[Pose] = [
-    waypoint_SW,
-    waypoint_S1,
-    waypoint_S2,
-    waypoint_SE,
-    waypoint_E1,
-    waypoint_E2,
-    waypoint_E3,
-    waypoint_E4,
-    waypoint_E5,
-    waypoint_E6,
-    waypoint_E7,
-    waypoint_E8,
-    waypoint_E9,
-    waypoint_E10,
-    waypoint_NE,
-    waypoint_NW,
-    waypoint_W1,
-    waypoint_W2,
-    waypoint_W3,
-    waypoint_W4,
-]
+waypoints: List[Pose] = []
 
 
 def get_waypoint_path(current_idx: int, target_idx: int, total: int) -> List[int]:
@@ -361,6 +354,24 @@ if __name__ == "__main__":
     rospy.init_node("check_odometry")
     odom_sub = rospy.Subscriber("/amcl_pose", PoseWithCovarianceStamped, pose_callback)
     alert_sub = rospy.Subscriber("/alert", Pose, alert_callback)
+
+    # Parse waypoints filename argument
+    waypoints_file = None
+    if "--waypoints" in sys.argv:
+        try:
+            idx = sys.argv.index("--waypoints")
+            waypoints_file = sys.argv[idx + 1]
+        except (ValueError, IndexError):
+            rospy.logerr("Usage: --waypoints <filename>")
+            exit(1)
+    if waypoints_file:
+        waypoints = load_waypoints_from_file(waypoints_file)
+        if not waypoints:
+            rospy.logerr("No waypoints loaded. Exiting.")
+            exit(1)
+    else:
+        rospy.logerr("No waypoints file provided. Use --waypoints <filename>.")
+        exit(1)
 
     # Check for go_to_waypoint argument
     if "--goto" in sys.argv:
