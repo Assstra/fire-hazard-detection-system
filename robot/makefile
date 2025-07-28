@@ -13,7 +13,10 @@ run_dx:
 	rosrun fire-hazard-detection-system node.py --waypoints waypoints/dx.txt
 
 debug:
-	rosrun fire-hazard-detection-system node.py --debug
+	rosrun fire-hazard-detection-system node.py --waypoints waypoints/campus.txt --debug
+
+debug_dx:
+	rosrun fire-hazard-detection-system node.py --waypoints waypoints/dx.txt --debug
 
 topic:
 	    @if [ -z "$(X)" ] || [ -z "$(Y)" ]; then \
