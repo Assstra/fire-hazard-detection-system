@@ -13,6 +13,7 @@ from typing import Optional, List, Tuple
 class RobotState(Enum):
     PATROL = 1
     ALERT = 2
+    SEARCH = 3
 
 
 current_state: RobotState = RobotState.PATROL
@@ -136,8 +137,7 @@ def go_to_waypoint(client: actionlib.SimpleActionClient, target_waypoint: int) -
             next_wp = waypoints[path[idx + 1]]
             if current_position is not None:
                 client.cancel_all_goals()
-                turn_towards_next_waypoint(current_position, next_wp)
-
+                turn_to_position(current_position, next_wp)
 
 def turn_robot(angular_z: float, duration: float = 1.0) -> None:
     pub = rospy.Publisher("/cmd_vel", Twist, queue_size=10)
@@ -152,17 +152,14 @@ def turn_robot(angular_z: float, duration: float = 1.0) -> None:
     twist.angular.z = 0.0
     pub.publish(twist)
 
-
-def turn_towards_next_waypoint(current_position: Pose, next_wp: Pose) -> None:
+def turn_to_position(current_position: Pose, next_position: Pose) -> None:
     """
     Turns the robot to face the direction of the next waypoint.
     """
-    dx = next_wp.position.x - current_position.position.x
-    dy = next_wp.position.y - current_position.position.y
+    dx = next_position.position.x - current_position.position.x
+    dy = next_position.position.y - current_position.position.y
     desired_yaw = math.atan2(dy, dx)
-    # Get current yaw from quaternion
     import tf.transformations
-
     q = [
         current_position.orientation.x,
         current_position.orientation.y,
@@ -176,16 +173,24 @@ def turn_towards_next_waypoint(current_position: Pose, next_wp: Pose) -> None:
         yaw_diff -= 2 * math.pi
     while yaw_diff < -math.pi:
         yaw_diff += 2 * math.pi
-    # Only turn if angle difference is greater than 30 degrees (pi/6 radians)
-    if abs(yaw_diff) > math.radians(30):
-        max_angular_z = 0.3
-        angular_z = max(min(yaw_diff, max_angular_z), -max_angular_z)
-        turn_duration = abs(yaw_diff) / max(abs(angular_z), 0.01)
-        rospy.loginfo(
-            f"Turning robot to waypoint={waypoints.index(next_wp)} with angular_z={angular_z} for {turn_duration}s"
-        )
-        turn_robot(angular_z, duration=turn_duration)
+    # Always turn with fixed angular_z
+    angular_z = 0.3 if yaw_diff >= 0 else -0.3
+    turn_duration = abs(yaw_diff) / 0.3
+    try:
+        wp = waypoints.index(next_position)
+        rospy.loginfo(f"Turning robot to waypoint={wp} with angular_z={angular_z} for {turn_duration:.2f}s")
+    except ValueError:
+        rospy.loginfo(f"Turning robot to position={next_position} with angular_z={angular_z} for {turn_duration:.2f}s")
+    turn_robot(angular_z, duration=turn_duration)
 
+def turn_degree(degrees: float) -> None:
+    radians = math.radians(degrees)
+    # Use sign of radians for direction, magnitude for speed (fixed at 0.3)
+    angular_z = 0.3 if radians >= 0 else -0.3
+    # Duration is proportional to angle
+    turn_duration = abs(radians) / 0.3
+    rospy.loginfo(f"Turning robot {degrees} degrees ({radians:.2f} rad) with angular_z={angular_z} for {turn_duration:.2f}s")
+    turn_robot(angular_z, duration=turn_duration)
 
 def get_nearest_waypoint(pose: Pose) -> Tuple[int, float]:
     """
@@ -273,7 +278,7 @@ def handle_patrol(
         next_wp = waypoints[waypoint_idx]
         if current_position is not None:
             client.cancel_all_goals()
-            turn_towards_next_waypoint(current_position, next_wp)
+            turn_to_position(current_position, next_wp)
     elif state == actionlib.GoalStatus.ABORTED:
         rospy.logwarn(f"Goal aborted, retrying waypoint: {waypoint_idx}")
         goal_active = False
@@ -288,19 +293,19 @@ def handle_alert(
     alert_pose: Pose,
 ) -> Tuple[bool, Optional[str], bool]:
     global current_position
-    rospy.loginfo(f"Receiving ALERT goal: {alert_pose}")
     if not goal_active or current_goal != "ALERT":
         client.cancel_all_goals()
+        rospy.loginfo(f"Receiving ALERT goal: {alert_pose}")
         if alert_pose is not None and current_position is not None:
             target_idx, _ = get_nearest_waypoint(alert_pose)
             go_to_waypoint(client, target_idx)
+            turn_to_position(current_position, alert_pose)
         send_alert_goal(client, alert_pose)
         goal_active = True
         current_goal = "ALERT"
 
     state = client.get_state()
     alert_done = False
-    # TODO: handle camera turn
 
     if (
         state == actionlib.GoalStatus.SUCCEEDED
@@ -318,6 +323,17 @@ def handle_alert(
         goal_active = False
         current_goal = None
     return goal_active, current_goal, alert_done
+
+def handle_search(client: actionlib.SimpleActionClient) -> bool:
+    global current_position
+    # Implement search logic here, e.g., turn in place or move in a pattern
+    # For now, just turn 90 degrees
+    turn_degree(45)
+    turn_degree(-90)
+    turn_degree(45)
+    # After searching, return to patrol mode
+    rospy.loginfo("Search complete, returning to patrol mode.")
+    return True  # Indicate that search is done
 
 
 def robot_statemachine() -> bool:
@@ -342,15 +358,22 @@ def robot_statemachine() -> bool:
                 client, goal_active, current_goal, alert_pose
             )
             if alert_done:
-                current_state = RobotState.PATROL
+                current_state = RobotState.SEARCH
                 alert_pose = None
-                nearest_waypoint = get_nearest_waypoint(current_position)
-                waypoint_idx = nearest_waypoint[0]
 
         elif current_state == RobotState.PATROL and not DEBUG:
             goal_active, current_goal, waypoint_idx = handle_patrol(
                 client, goal_active, current_goal, waypoint_idx
             )
+        
+        elif current_state == RobotState.SEARCH:
+            rospy.loginfo("Searching for fire hazard...")
+
+            search_done = handle_search(client)
+            if search_done:
+                current_state = RobotState.PATROL
+                nearest_waypoint = get_nearest_waypoint(current_position)
+                waypoint_idx = nearest_waypoint[0]
 
         rate.sleep()
 
