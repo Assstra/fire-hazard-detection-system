@@ -136,7 +136,6 @@ def turn_robot(angular_z: float, duration: float = 1.0) -> None:
     pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
     twist = Twist()
     twist.angular.z = angular_z
-    print(twist)
     rate = rospy.Rate(10)  # 10 Hz
     end_time = rospy.Time.now() + rospy.Duration(duration)
     while rospy.Time.now() < end_time:
@@ -191,9 +190,7 @@ def get_nearest_waypoint(pose: Pose) -> Tuple[int, float]:
 
 def alert_callback(msg: Pose) -> None:
     global current_state, alert_pose
-    rospy.loginfo(
-        "Alert received at position: x={}, y={}".format(msg.position.x, msg.position.y)
-    )
+    rospy.loginfo(f"Alert received at position: x={msg.position.x}, y={msg.position.y}")
     alert_pose = msg
     current_state = RobotState.ALERT
 
@@ -220,7 +217,7 @@ def send_patrol_goal(client: actionlib.SimpleActionClient, waypoint_idx: int) ->
     goal.target_pose.header.frame_id = "map"
     goal.target_pose.header.stamp = rospy.Time.now()
     goal.target_pose.pose = waypoints[waypoint_idx]
-    rospy.loginfo("Patrolling to waypoint: {} at {}".format(waypoint_idx, goal.target_pose.pose))
+    rospy.loginfo(f"Patrolling to waypoint: {waypoint_idx} at {goal.target_pose.pose}")
     client.send_goal(goal)
     return waypoint_idx
 
@@ -230,7 +227,7 @@ def send_alert_goal(client: actionlib.SimpleActionClient, alert_pose: Pose) -> N
     goal.target_pose.header.frame_id = "map"
     goal.target_pose.header.stamp = rospy.Time.now()
     goal.target_pose.pose = alert_pose
-    rospy.loginfo("Sending ALERT goal: {}".format(alert_pose))
+    rospy.loginfo(f"Sending ALERT goal: {alert_pose}")
     client.send_goal(goal)
 
 
@@ -253,7 +250,7 @@ def handle_patrol(
         or goal_active
         and is_near_goal(goal_pose, current_position)
     ):
-        rospy.loginfo("Reached waypoint: {}".format(waypoint_idx))
+        rospy.loginfo(f"Reached waypoint: {waypoint_idx}")
         waypoint_idx = (waypoint_idx + 1) % len(waypoints)
         goal_active = False
         current_goal = None
@@ -263,7 +260,7 @@ def handle_patrol(
             client.cancel_all_goals()
             turn_towards_next_waypoint(current_position, next_wp)
     elif state == actionlib.GoalStatus.ABORTED:
-        rospy.logwarn("Goal aborted, retrying waypoint: {}".format(waypoint_idx))
+        rospy.logwarn(f"Goal aborted, retrying waypoint: {waypoint_idx}")
         goal_active = False
         current_goal = None
     return goal_active, current_goal, waypoint_idx
@@ -276,7 +273,7 @@ def handle_alert(
     alert_pose: Pose,
 ) -> Tuple[bool, Optional[str], bool]:  
     global current_position
-    rospy.loginfo("Receiving ALERT goal: {}".format(alert_pose))
+    rospy.loginfo(f"Receiving ALERT goal: {alert_pose}")
     if not goal_active or current_goal != "ALERT":
         client.cancel_all_goals()
         if alert_pose is not None and current_position is not None:
@@ -296,7 +293,7 @@ def handle_alert(
         and is_near_goal(alert_pose, current_position)
     ):
         rospy.loginfo("Reached alert position.")
-        rospy.loginfo(format(current_position))
+        rospy.loginfo(f"{current_position}")
         goal_active = False
         current_goal = None
         alert_done = True
@@ -317,7 +314,7 @@ def robot_statemachine() -> bool:
     if not DEBUG:
         nearest_waypoint = get_nearest_waypoint(current_position)
         waypoint_idx = nearest_waypoint[0]
-        rospy.loginfo("Starting at nearest waypoint: {} of distance: {}".format(waypoint_idx, nearest_waypoint[1]))
+        rospy.loginfo(f"Starting at nearest waypoint: {waypoint_idx} of distance: {nearest_waypoint[1]}")
     goal_active = False
 
     rate = rospy.Rate(2)  # 2 Hz loop
