@@ -14,6 +14,7 @@ class RobotState(Enum):
     PATROL = 1
     ALERT = 2
 
+
 current_state: RobotState = RobotState.PATROL
 alert_pose: Optional[Pose] = None
 current_goal: Optional[int] = None  # can also be "ALERT" (str), but default is int
@@ -23,21 +24,22 @@ current_position: Optional[Pose] = None
 # Debug flag to disable patrol mode
 DEBUG: bool = False
 
+
 # Function to load waypoints from a txt file
 def load_waypoints_from_file(filename: str) -> List[Pose]:
     waypoints = []
     try:
-        with open(filename, 'r') as f:
+        with open(filename, "r") as f:
             for line in f:
                 line = line.strip()
-                if not line or line.startswith('#'):
+                if not line or line.startswith("#"):
                     continue
                 # Expected format: `name: x, y`
-                if ':' not in line or ',' not in line:
+                if ":" not in line or "," not in line:
                     rospy.logwarn(f"Skipping invalid waypoint line: {line}")
                     continue
-                name_part, coords_part = line.split(':', 1)
-                coords = coords_part.split(',')
+                name_part, coords_part = line.split(":", 1)
+                coords = coords_part.split(",")
                 if len(coords) < 2:
                     rospy.logwarn(f"Skipping invalid waypoint line: {line}")
                     continue
@@ -57,6 +59,7 @@ def load_waypoints_from_file(filename: str) -> List[Pose]:
     except Exception as e:
         rospy.logerr(f"Failed to load waypoints from {filename}: {e}")
     return waypoints
+
 
 def make_waypoint(
     x: float, y: float, z: float, ox: float, oy: float, oz: float, ow: float
@@ -109,7 +112,9 @@ def go_to_waypoint(client: actionlib.SimpleActionClient, target_waypoint: int) -
     start_idx, _ = get_nearest_waypoint(current_position)
     total = len(waypoints)
     path = get_waypoint_path(start_idx, target_waypoint, total)
-    rospy.loginfo(f"Navigating from waypoint {start_idx} to {target_waypoint} via path: {path}")
+    rospy.loginfo(
+        f"Navigating from waypoint {start_idx} to {target_waypoint} via path: {path}"
+    )
     for idx, waypoint in enumerate(path):
         send_patrol_goal(client, waypoint)
         # Wait until goal is reached
@@ -117,7 +122,9 @@ def go_to_waypoint(client: actionlib.SimpleActionClient, target_waypoint: int) -
         goal_active = True
         while goal_active and not rospy.is_shutdown():
             state = client.get_state()
-            if state == actionlib.GoalStatus.SUCCEEDED or is_near_goal(goal_pose, current_position):
+            if state == actionlib.GoalStatus.SUCCEEDED or is_near_goal(
+                goal_pose, current_position
+            ):
                 rospy.loginfo(f"Reached waypoint {waypoint}")
                 goal_active = False
             elif state == actionlib.GoalStatus.ABORTED:
@@ -133,7 +140,7 @@ def go_to_waypoint(client: actionlib.SimpleActionClient, target_waypoint: int) -
 
 
 def turn_robot(angular_z: float, duration: float = 1.0) -> None:
-    pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
+    pub = rospy.Publisher("/cmd_vel", Twist, queue_size=10)
     twist = Twist()
     twist.angular.z = angular_z
     rate = rospy.Rate(10)  # 10 Hz
@@ -155,7 +162,13 @@ def turn_towards_next_waypoint(current_position: Pose, next_wp: Pose) -> None:
     desired_yaw = math.atan2(dy, dx)
     # Get current yaw from quaternion
     import tf.transformations
-    q = [current_position.orientation.x, current_position.orientation.y, current_position.orientation.z, current_position.orientation.w]
+
+    q = [
+        current_position.orientation.x,
+        current_position.orientation.y,
+        current_position.orientation.z,
+        current_position.orientation.w,
+    ]
     _, _, current_yaw = tf.transformations.euler_from_quaternion(q)
     yaw_diff = desired_yaw - current_yaw
     # Normalize angle to [-pi, pi]
@@ -168,7 +181,9 @@ def turn_towards_next_waypoint(current_position: Pose, next_wp: Pose) -> None:
         max_angular_z = 0.3
         angular_z = max(min(yaw_diff, max_angular_z), -max_angular_z)
         turn_duration = abs(yaw_diff) / max(abs(angular_z), 0.01)
-        rospy.loginfo(f"Turning robot to waypoint={waypoints.index(next_wp)} with angular_z={angular_z} for {turn_duration}s")
+        rospy.loginfo(
+            f"Turning robot to waypoint={waypoints.index(next_wp)} with angular_z={angular_z} for {turn_duration}s"
+        )
         turn_robot(angular_z, duration=turn_duration)
 
 
@@ -271,7 +286,7 @@ def handle_alert(
     goal_active: bool,
     current_goal: Optional[str],
     alert_pose: Pose,
-) -> Tuple[bool, Optional[str], bool]:  
+) -> Tuple[bool, Optional[str], bool]:
     global current_position
     rospy.loginfo(f"Receiving ALERT goal: {alert_pose}")
     if not goal_active or current_goal != "ALERT":
@@ -314,7 +329,9 @@ def robot_statemachine() -> bool:
     if not DEBUG:
         nearest_waypoint = get_nearest_waypoint(current_position)
         waypoint_idx = nearest_waypoint[0]
-        rospy.loginfo(f"Starting at nearest waypoint: {waypoint_idx} of distance: {nearest_waypoint[1]}")
+        rospy.loginfo(
+            f"Starting at nearest waypoint: {waypoint_idx} of distance: {nearest_waypoint[1]}"
+        )
     goal_active = False
 
     rate = rospy.Rate(2)  # 2 Hz loop
