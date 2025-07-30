@@ -7,7 +7,7 @@ dependencies = [
     "fastapi[standard]>=0.116.0",
     "ultralytics>=8.0.0",
     "opencv-python>=4.8.0",
-    "numpy>=1.24.0",
+    "numpy==1.26.4",
     "sse-starlette>=1.6.0",
     "onnxruntime>=1.22.1",
     "onnx>=1.18.0",

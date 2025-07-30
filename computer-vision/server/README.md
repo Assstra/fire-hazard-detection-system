@@ -33,6 +33,18 @@ You can use the model trained in the `../training` directory.
 - `--port`: Port to bind to (default: `8000`)
 - `--confidence`: Sets the minimum confidence threshold for detections (default: 0.25)
 
+### Docker Usage
+
+You can run the server using Docker:
+
+```bash
+docker compose up
+```
+
+If you want GPU support, uncomment the `runtime`, `ipc`, and `ulimits` lines in the `compose.yaml` file.
+
+See [Enable GPU support in Docker](https://docs.docker.com/compose/how-tos/gpu-support/) for more information.
+
 ### API Endpoints
 
 #### Root Endpoint

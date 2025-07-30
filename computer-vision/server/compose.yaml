@@ -1,0 +1,16 @@
+services:
+  nvidia:
+    build: .
+    # runtime: nvidia
+    # ipc: host
+    # ulimits:
+    #   memlock: -1
+    #   stack: 67108864
+    environment:
+      MODEL_PATH: /opt/models/model.onnx
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models/:/opt/models/
+    devices:
+      - /dev/video0:/dev/video0
