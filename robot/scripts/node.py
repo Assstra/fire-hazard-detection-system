@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python
 
 # Standard library imports
@@ -87,17 +86,22 @@ def make_waypoint(
 waypoints: List[Pose] = []  # List of loaded waypoints
 
 
-def get_waypoint_path(current_idx: int, target_idx: int, total: int) -> List[int]:
+def get_waypoint_path(current_idx: int, target_idx: int, total: int, current_pose: Optional[Pose] = None) -> List[int]:
     """
     Computes the shortest path (forward or backward) between two waypoints.
-    Returns a list of waypoint indices.
+    If current_pose is provided, treats it as a virtual waypoint at index 'total'.
+    Returns a list of waypoint indices (with 'VIRTUAL' for the current position if used).
     """
+    # If current_pose is provided, treat it as a virtual waypoint at index 'total'
+    use_virtual = current_pose is not None
+    pool_size = total + 1 if use_virtual else total
+
     # Forward path
     fwd_path = []
     idx = current_idx
     while idx != target_idx:
         fwd_path.append(idx)
-        idx = (idx + 1) % total
+        idx = (idx + 1) % pool_size
     fwd_path.append(target_idx)
     fwd_len = len(fwd_path)
 
@@ -106,9 +110,14 @@ def get_waypoint_path(current_idx: int, target_idx: int, total: int) -> List[int
     idx = current_idx
     while idx != target_idx:
         bwd_path.append(idx)
-        idx = (idx - 1 + total) % total
+        idx = (idx - 1 + pool_size) % pool_size
     bwd_path.append(target_idx)
     bwd_len = len(bwd_path)
+
+    # If using virtual waypoint, replace its index with a string for clarity
+    if use_virtual:
+        fwd_path = ["VIRTUAL" if i == total else i for i in fwd_path]
+        bwd_path = ["VIRTUAL" if i == total else i for i in bwd_path]
 
     # Choose shortest
     if fwd_len <= bwd_len:
@@ -121,6 +130,7 @@ def go_to_waypoint(client: actionlib.SimpleActionClient, target_waypoint: int) -
     """
     Navigates the robot from its current position to the target waypoint,
     following the shortest path through waypoints.
+    If the last waypoint in the path is farther than the target_waypoint, ignore it.
     """
     global current_position
     if current_position is None:
@@ -128,7 +138,26 @@ def go_to_waypoint(client: actionlib.SimpleActionClient, target_waypoint: int) -
         return
     start_idx, _ = get_nearest_waypoint(current_position)
     total = len(waypoints)
-    path = get_waypoint_path(start_idx, target_waypoint, total)
+    path = get_waypoint_path(start_idx, target_waypoint, total, current_position)
+
+    # Remove last waypoint if it's farther than the target_waypoint
+    if len(path) > 1:
+        last = path[-1]
+        prev = path[-2]
+        # Only compare if both are valid indices (not 'VIRTUAL')
+        if last != "VIRTUAL" and prev != "VIRTUAL":
+            last_dist = math.hypot(
+                waypoints[last].position.x - waypoints[target_waypoint].position.x,
+                waypoints[last].position.y - waypoints[target_waypoint].position.y,
+            )
+            prev_dist = math.hypot(
+                waypoints[prev].position.x - waypoints[target_waypoint].position.x,
+                waypoints[prev].position.y - waypoints[target_waypoint].position.y,
+            )
+            if last_dist > prev_dist:
+                rospy.loginfo(f"Ignoring last waypoint {last} as it is farther from target {target_waypoint} than previous waypoint {prev}.")
+                path = path[:-1]
+
     rospy.loginfo(
         f"Navigating from waypoint {start_idx} to {target_waypoint} via path: {path}"
     )
@@ -149,7 +178,7 @@ def go_to_waypoint(client: actionlib.SimpleActionClient, target_waypoint: int) -
                 send_patrol_goal(client, waypoint)
             rospy.sleep(0.2)
         # Turn towards next waypoint if not last
-        if waypoint != target_waypoint:
+        if waypoint != target_waypoint and idx + 1 < len(path):
             next_wp = waypoints[path[idx + 1]]
             if current_position is not None:
                 client.cancel_all_goals()
