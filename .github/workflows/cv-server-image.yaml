@@ -1,0 +1,19 @@
+name: Build and Push `cv-server` Docker Image
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version of the image (ex: 0.1.0)'
+        type: string
+
+jobs:
+  build_and_push:
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/reusable-docker.yaml
+    with:
+      path: ./computer-vision/server
+      image: ghcr.io/${{ github.repository }}/cv-server
+      version: ${{ github.event.inputs.version }}
