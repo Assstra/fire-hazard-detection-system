@@ -6,7 +6,6 @@ import sys
 
 # ROS imports
 import rospy
-import sys
 import actionlib
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 from geometry_msgs.msg import Pose, PoseWithCovarianceStamped, Twist
@@ -26,7 +25,6 @@ current_goal: Optional[int] = None  # Current goal index or "ALERT"
 current_position: Optional[Pose] = None  # Latest known robot position
 
 
-# Debug flag to disable patrol mode
 DEBUG: bool = False  # If True, disables patrol mode for testing
 
 
@@ -86,22 +84,18 @@ def make_waypoint(
 waypoints: List[Pose] = []  # List of loaded waypoints
 
 
-def get_waypoint_path(current_idx: int, target_idx: int, total: int, current_pose: Optional[Pose] = None) -> List[int]:
+def get_waypoint_path(current_idx: int, target_idx: int, total: int) -> List[int]:
     """
     Computes the shortest path (forward or backward) between two waypoints.
     If current_pose is provided, treats it as a virtual waypoint at index 'total'.
     Returns a list of waypoint indices (with 'VIRTUAL' for the current position if used).
     """
-    # If current_pose is provided, treat it as a virtual waypoint at index 'total'
-    use_virtual = current_pose is not None
-    pool_size = total + 1 if use_virtual else total
-
     # Forward path
     fwd_path = []
     idx = current_idx
     while idx != target_idx:
         fwd_path.append(idx)
-        idx = (idx + 1) % pool_size
+        idx = (idx + 1) % total
     fwd_path.append(target_idx)
     fwd_len = len(fwd_path)
 
@@ -110,14 +104,9 @@ def get_waypoint_path(current_idx: int, target_idx: int, total: int, current_pos
     idx = current_idx
     while idx != target_idx:
         bwd_path.append(idx)
-        idx = (idx - 1 + pool_size) % pool_size
+        idx = (idx - 1 + total) % total
     bwd_path.append(target_idx)
     bwd_len = len(bwd_path)
-
-    # If using virtual waypoint, replace its index with a string for clarity
-    if use_virtual:
-        fwd_path = ["VIRTUAL" if i == total else i for i in fwd_path]
-        bwd_path = ["VIRTUAL" if i == total else i for i in bwd_path]
 
     # Choose shortest
     if fwd_len <= bwd_len:
@@ -126,7 +115,7 @@ def get_waypoint_path(current_idx: int, target_idx: int, total: int, current_pos
         return bwd_path
 
 
-def go_to_waypoint(client: actionlib.SimpleActionClient, target_waypoint: int) -> None:
+def go_to_position(client: actionlib.SimpleActionClient, target: Pose) -> None:
     """
     Navigates the robot from its current position to the target waypoint,
     following the shortest path through waypoints.
@@ -137,29 +126,28 @@ def go_to_waypoint(client: actionlib.SimpleActionClient, target_waypoint: int) -
         rospy.logwarn("Current position unknown, cannot navigate.")
         return
     start_idx, _ = get_nearest_waypoint(current_position)
+    target_waypoint, _ = get_nearest_waypoint(target)
     total = len(waypoints)
-    path = get_waypoint_path(start_idx, target_waypoint, total, current_position)
+    path = get_waypoint_path(start_idx, target_waypoint, total)
 
-    # Remove last waypoint if it's farther than the target_waypoint
-    if len(path) > 1:
-        last = path[-1]
-        prev = path[-2]
-        # Only compare if both are valid indices (not 'VIRTUAL')
-        if last != "VIRTUAL" and prev != "VIRTUAL":
-            last_dist = math.hypot(
-                waypoints[last].position.x - waypoints[target_waypoint].position.x,
-                waypoints[last].position.y - waypoints[target_waypoint].position.y,
-            )
-            prev_dist = math.hypot(
-                waypoints[prev].position.x - waypoints[target_waypoint].position.x,
-                waypoints[prev].position.y - waypoints[target_waypoint].position.y,
-            )
-            if last_dist > prev_dist:
-                rospy.loginfo(f"Ignoring last waypoint {last} as it is farther from target {target_waypoint} than previous waypoint {prev}.")
-                path = path[:-1]
+    # If the last waypoint in the path is farther from the current position than the target, remove it
+    if len(path) >= 1:
+        last_wp_idx = path[-1]
+        last_wp_pose = waypoints[last_wp_idx]
+        dist_to_target = math.hypot(
+            target.position.x - current_position.position.x,
+            target.position.y - current_position.position.y,
+        )
+        dist_to_last_wp = math.hypot(
+            last_wp_pose.position.x - current_position.position.x,
+            last_wp_pose.position.y - current_position.position.y,
+        )
+        if dist_to_target < dist_to_last_wp:
+            rospy.loginfo(f"Removing last waypoint {last_wp_idx} from path because direct target is closer.")
+            path = path[:-1]
 
     rospy.loginfo(
-        f"Navigating from waypoint {start_idx} to {target_waypoint} via path: {path}"
+        f"Navigating from waypoint {start_idx} to {target} via path: {path}"
     )
     for idx, waypoint in enumerate(path):
         send_patrol_goal(client, waypoint)
@@ -178,7 +166,7 @@ def go_to_waypoint(client: actionlib.SimpleActionClient, target_waypoint: int) -
                 send_patrol_goal(client, waypoint)
             rospy.sleep(0.2)
         # Turn towards next waypoint if not last
-        if waypoint != target_waypoint and idx + 1 < len(path):
+        if waypoint != target and idx + 1 < len(path):
             next_wp = waypoints[path[idx + 1]]
             if current_position is not None:
                 client.cancel_all_goals()
@@ -387,8 +375,7 @@ def handle_alert(
         client.cancel_all_goals()
         rospy.loginfo(f"Receiving ALERT goal: {alert_pose}")
         if alert_pose is not None and current_position is not None:
-            target_idx, _ = get_nearest_waypoint(alert_pose)
-            go_to_waypoint(client, target_idx)
+            go_to_position(client, alert_pose)
             turn_to_position(current_position, alert_pose)
         send_alert_goal(client, alert_pose)
         goal_active = True
@@ -519,7 +506,7 @@ if __name__ == "__main__":
             target_idx = int(sys.argv[idx + 1])
             client = actionlib.SimpleActionClient("move_base", MoveBaseAction)
             client.wait_for_server()
-            go_to_waypoint(client, target_idx)
+            go_to_position(client, waypoints[target_idx])
         except (ValueError, IndexError) as e:
             rospy.logerr(e)
             rospy.logerr("Usage: --goto <waypoint_index>")
