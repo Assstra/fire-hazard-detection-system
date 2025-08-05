@@ -17,3 +17,5 @@ jobs:
       path: ./computer-vision/server
       image: ghcr.io/${{ github.repository }}/cv-server
       version: ${{ github.event.inputs.version }}
+      file: Dockerfile.jetpack
+      platforms: linux/arm64
