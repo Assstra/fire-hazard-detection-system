@@ -118,6 +118,7 @@ dependencies = [
     { name = "onnx" },
     { name = "onnxruntime" },
     { name = "opencv-python" },
+    { name = "requests" },
     { name = "sse-starlette" },
     { name = "ultralytics" },
 ]
@@ -129,6 +130,7 @@ requires-dist = [
     { name = "onnx", specifier = ">=1.18.0" },
     { name = "onnxruntime", specifier = ">=1.22.1" },
     { name = "opencv-python", specifier = ">=4.8.0" },
+    { name = "requests", specifier = ">=2.32.4" },
     { name = "sse-starlette", specifier = ">=1.6.0" },
     { name = "ultralytics", specifier = ">=8.0.0" },
 ]

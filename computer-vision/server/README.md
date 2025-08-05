@@ -31,9 +31,15 @@ You can use the model trained in the `../training` directory.
   - `.engine` (TensorRT)
 - `--host`: Host to bind to (default: `0.0.0.0`)
 - `--port`: Port to bind to (default: `8000`)
-- `--confidence`: Sets the minimum confidence threshold for detections (default: 0.25)
+- `--confidence, c`: Sets the minimum confidence threshold for detections (default: `0.25`)
+- `--video-output, -v`: Path to a folder to save video output (default: `None`, no video output)
 
 ### Docker Usage
+
+> [!NOTE]
+> This program is designed to run on NVIDIA Jetson devices (based on the [`nvcr.io/nvidia/l4t-jetpack`](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/l4t-jetpack) image).
+> 
+> For now, there is no support for other platforms.
 
 You can run the server using Docker:
 

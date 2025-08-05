@@ -1,6 +1,8 @@
 services:
-  nvidia:
-    build: .
+  jetpack:
+    build:
+      context: .
+      dockerfile: Dockerfile.jetpack
     # runtime: nvidia
     # ipc: host
     # ulimits:
