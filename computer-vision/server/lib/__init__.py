@@ -1,7 +1,6 @@
-from enum import StrEnum
-
 import cv2
 import numpy as np
+from strenum import StrEnum
 
 
 class DetectionKind(StrEnum):

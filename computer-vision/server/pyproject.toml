@@ -2,7 +2,7 @@
 name = "computer-vision-server"
 version = "0.1.0"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 dependencies = [
     "fastapi[standard]>=0.116.0",
     "ultralytics>=8.0.0",
@@ -12,4 +12,5 @@ dependencies = [
     "requests>=2.32.4",
     "onnxruntime>=1.22.1",
     "onnx>=1.18.0",
+    "strenum>=0.4.15",
 ]
