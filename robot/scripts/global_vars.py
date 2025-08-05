@@ -9,3 +9,6 @@ def init_global_vars():
     current_goal = None  #: Optional[int] Current goal index or "ALERT"
     current_position = None  #: Optional[Pose] Latest known robot position
     waypoints = []  #: List[Pose] List of waypoints for patrolling
+    host = None  #: str Host for the fire detection server
+    port = None  #: int Port for the fire detection server
+    

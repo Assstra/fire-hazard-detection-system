@@ -51,6 +51,19 @@ def main():
             rospy.logerr(e)
             rospy.logerr("Usage: --goto <waypoint_index>")
             exit(1)
+    
+    if "--host" not in sys.argv or "--port" not in sys.argv:
+        rospy.logwarn("No host or port provided. Search mode will not be available.")
+    else:
+        try:
+            host_idx = sys.argv.index("--host")
+            port_idx = sys.argv.index("--port")
+            global_vars.host = sys.argv[host_idx + 1]
+            global_vars.port = int(sys.argv[port_idx + 1])
+        except (ValueError, IndexError) as e:
+            rospy.logerr(e)
+            rospy.logerr("Usage: --host <hostname> --port <port>")
+            exit(1)
 
     try:
         result = robot_statemachine()

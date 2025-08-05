@@ -1,5 +1,6 @@
 import rospy
 import actionlib
+import multiprocessing
 from move_base_msgs.msg import MoveBaseAction
 from states import RobotState
 from navigation import (
@@ -8,8 +9,9 @@ from navigation import (
     send_patrol_goal,
     send_alert_goal,
 )
-from motion import turn_to_position, turn_degree, go_to_position
+from motion import turn_to_position, go_to_position, turn_degree
 import global_vars
+from search import search
 
 
 def handle_patrol(client, goal_active, current_goal, waypoint_idx):
@@ -70,9 +72,43 @@ def handle_alert(client, goal_active, current_goal, alert_pose):
 
 
 def handle_search(client):
-    turn_degree(45)
-    turn_degree(-90)
-    turn_degree(45)
+    if global_vars.host is None or global_vars.port is None:
+        rospy.logwarn("Fire detection server host or port not set, cannot search.")
+        return False
+
+    parent_conn, child_conn = multiprocessing.Pipe()
+    p = multiprocessing.Process(target=search, args=(global_vars.host, global_vars.port, child_conn))
+    p.start()
+
+    rospy.loginfo("Started search process, waiting for events...")
+    try:
+        while p.is_alive():
+            if parent_conn.poll(1):  # Wait up to 1 second for event
+                event = parent_conn.recv()
+                
+                rospy.loginfo(f"Search event: {event}")
+                if event.get("type") == "rgb_detection":
+                    if event.get("position") == "left":
+                        turn_degree(-15)
+                    elif event.get("position") == "right":
+                        turn_degree(15)
+                    elif event.get("position") == "center":
+                        rospy.loginfo("Fire hazard detected in front, stopping search.")
+                        break
+                
+                # Break on error
+                if event.get("type") == "error":
+                    rospy.logwarn(f"Search process error: {event.get('message')}")
+                    break
+            else:
+                rospy.loginfo("No events received, turning...")
+                turn_degree(-45)
+        # Drain any remaining events
+        while parent_conn.poll():
+            event = parent_conn.recv()
+            rospy.loginfo(f"Search event: {event}")
+    finally:
+        p.join()
     rospy.loginfo("Search complete, returning to patrol mode.")
     return True
 
