@@ -19,8 +19,9 @@ def main():
     rospy.Subscriber("/alert", Pose, alert_callback)
 
     if "--debug" in sys.argv or "-d" in sys.argv:
-        global_vars.DEBUG = True
-        rospy.loginfo("[DEBUG] Patrol mode will be disabled.")
+        global_vars.debug = True
+        rospy.loginfo("[DEBUG MODE] Patrol mode will be disabled.")
+        rospy.loginfo("[DEBUG MODE] Alert will only be displayed.")
 
     waypoints_file = None
     if "--waypoints" in sys.argv:
