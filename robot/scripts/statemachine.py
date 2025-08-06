@@ -94,6 +94,7 @@ def handle_search(client):
                         turn_degree(15)
                     elif event.get("position") == "center":
                         rospy.loginfo("Fire hazard detected in front, stopping search.")
+                        p.kill()
                         break
                 
                 # Break on error
