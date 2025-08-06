@@ -80,7 +80,7 @@ def test_server_endpoints(base_url: str):
     print()
 
 
-def stream_detections(base_url: str, video_source: int = 0, pipe: Connection = None):
+def stream_detections(base_url: str, pipe: Connection = None, video_source: int = 0):
     """Connect to SSE stream and display detection events, or send via pipe if provided"""
     stream_url = f"{base_url}/events"
 
