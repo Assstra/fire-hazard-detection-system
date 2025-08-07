@@ -81,14 +81,18 @@ def test_server_endpoints(base_url: str):
             model_info = response.json()
             rospy.loginfo("✓ Model info endpoint working")
             rospy.loginfo(f"  Model path: {model_info.get('model_path', 'unknown')}")
-            rospy.loginfo(f"  Classes: {list(model_info.get('class_names', {}).values())}")
+            rospy.loginfo(
+                f"  Classes: {list(model_info.get('class_names', {}).values())}"
+            )
         else:
             rospy.logwarn(f"✗ Model info endpoint failed: {response.status_code}")
     except Exception as e:
         rospy.logerr(f"✗ Model info endpoint error: {e}")
 
 
-def stream_detections(base_url: str, pipe: Optional[Connection] = None, video_source: Optional[int] = 0):
+def stream_detections(
+    base_url: str, pipe: Optional[Connection] = None, video_source: Optional[int] = 0
+):
     """
     Connect to SSE stream and display detection events, or send via pipe if provided
     :param base_url: The base URL of the server.

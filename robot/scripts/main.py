@@ -56,7 +56,7 @@ def main():
             rospy.logerr(e)
             rospy.logerr("Usage: --goto <waypoint_index>")
             exit(1)
-    
+
     if "--host" not in sys.argv or "--port" not in sys.argv:
         rospy.logwarn("No host or port provided. Search mode will not be available.")
     else:

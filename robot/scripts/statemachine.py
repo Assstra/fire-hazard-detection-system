@@ -16,7 +16,12 @@ import global_vars
 from search import search
 
 
-def handle_patrol(client: actionlib.SimpleActionClient, goal_active: bool, current_goal: str, waypoint_idx: int) -> Tuple[bool, str, int]:
+def handle_patrol(
+    client: actionlib.SimpleActionClient,
+    goal_active: bool,
+    current_goal: str,
+    waypoint_idx: int,
+) -> Tuple[bool, str, int]:
     """
     Handles the patrol state by sending the robot to the next waypoint.
     :param client: The action client for move_base.
@@ -55,7 +60,12 @@ def handle_patrol(client: actionlib.SimpleActionClient, goal_active: bool, curre
     return goal_active, current_goal, waypoint_idx
 
 
-def handle_alert(client: actionlib.SimpleActionClient, goal_active: bool, current_goal: str, alert_pose: Pose) -> Tuple[bool, str, bool]:
+def handle_alert(
+    client: actionlib.SimpleActionClient,
+    goal_active: bool,
+    current_goal: str,
+    alert_pose: Pose,
+) -> Tuple[bool, str, bool]:
     """
     Handles the alert state by sending the robot to the alert position.
     :param client: The action client for move_base.
@@ -109,7 +119,9 @@ def handle_search() -> bool:
         return False
 
     parent_conn, child_conn = multiprocessing.Pipe()
-    p = multiprocessing.Process(target=search, args=(global_vars.host, global_vars.port, child_conn))
+    p = multiprocessing.Process(
+        target=search, args=(global_vars.host, global_vars.port, child_conn)
+    )
     p.start()
 
     rospy.loginfo("Started search process, waiting for events...")
@@ -117,7 +129,7 @@ def handle_search() -> bool:
         while p.is_alive():
             if parent_conn.poll(1):  # Wait up to 1 second for event
                 event = parent_conn.recv()
-                
+
                 rospy.loginfo(f"Search event: {event}")
                 if event.get("type") == "rgb_detection":
                     if event.get("position") == "left":
@@ -129,7 +141,7 @@ def handle_search() -> bool:
                         # kill the connection process to the search server
                         p.kill()
                         break
-                
+
                 # Break on error
                 if event.get("type") == "error":
                     rospy.logwarn(f"Search process error: {event.get('message')}")

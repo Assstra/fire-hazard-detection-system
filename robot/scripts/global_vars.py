@@ -14,4 +14,3 @@ def init_global_vars():
     waypoints = []  #: List[Pose] List of waypoints for patrolling
     host = None  #: str Host for the fire detection server
     port = None  #: int Port for the fire detection server
-    
