@@ -20,83 +20,117 @@ from geometry_msgs.msg import Pose
 #   Retry count                 : 3
 #   Transfer Mode               : Payload
 #   Receive Node ID information : OFF
-
-port = "/dev/ttyUSB0"
-baudrate = "115200"
+    
+port = "/dev/ttyUSB1"
+baudrate = 115200
 
 devices: Dict = {
     "002": {
         "coordinates": {
-            "x": 37.7749,
-            "y": -122.4194
+            "x": 0.0,
+            "y": 0.0
         },
         "last_healthcheck": 0
     },
     "003": {
         "coordinates": {
-            "x": -20.7749,
-            "y": 40.42738
+            "x": 0.0,
+            "y": 0.0
+        },
+        "last_healthcheck": 0
+    },
+    "004": {
+        "coordinates": {
+            "x": 0.0,
+            "y": 0.0
+        },
+        "last_healthcheck": 0
+    },
+    "005": {
+        "coordinates": {
+            "x": 0.0,
+            "y": 0.0
         },
         "last_healthcheck": 0
     }
 }
 
 fileAddress = r'logs.txt'
+debugMode = True
 
 class Device:
-    def __init__(self, port, baudrate):
+    port: str
+    baudrate: int
+    
+    def __init__(self, port: str, baudrate: int):
         self.port = port
         self.baudrate = baudrate
         self.ser = serial.Serial(self.port, self.baudrate)
         print(f"Device created with serial instance: {self.ser}")
         
+    def __str__(self) -> str:
+        return f"Device with port {self.port} and baudrate {self.baudrate}"
+           
 class Message:
-    def __init__(self, string: str) -> None:
-        self.string = string
+    type: str
+    device_id: str
+    timestamp: str
+    additional_info: str
+    test: str
     
-    def clean(self):
-        self.string = self.string.replace('\r', '').replace('\n', '')
-        if "Receive Data(" in self.string:
-            self.string = self.string.split("Receive Data(")[-1]
-        self.string = self.string.rstrip('#')
-        
-    def check_integrity(self):
-        # e.g. H9992600300
-        # H => Healthcheck
-        # 999 => DeviceID
-        # 2600300 => Timestamp
-        
-        # Check message integrity based on type
-        self.clean()
-        msg = self.string
+    def check_integrity(self, message: str):
+        if not message or len(message) < 11:
+            return False
 
-        if not msg or len(msg) < 11:
-            return False  # Minimum length for H message is 11
+        type = message[0] # 1st char
 
-        type = msg[0] # 1st char
-
-        # Available types: Healthcheck, Logs or Alert
-        if not (type in ['H', 'L', 'A']):
+        # Available message types: Healthcheck or Alert
+        if not (type in ['H', 'A']):
             return False
 
         return True
+    
+    def __init__(self, string: str) -> None:
+        # e.g. H-999-2600-300
+        # H => Healthcheck
+        # 999 => DeviceID
+        # 2600 => Timestamp
+        # 300 => CO Sensor value
         
-    def split_elements(self):
-        """
-        Splits the message string into its elements: type, device_id, timestamp, and optionally sensor_value.
-        Returns a dictionary with the extracted elements.
-        """
-        self.check_integrity()
-        self.clean()
-        msg = self.string
+        # Clean message
+        string = string.replace('\r', '').replace('\n', '')
+        if "Receive Data(" in string:
+            string = string.split("Receive Data(")[-1]
+        string = string.rstrip('#')
+        
+        # Check message integrity
+        if self.check_integrity(string):
+            message_array = string.split("-", 4)
+            self.type, self.device_id, self.timestamp, self.additional_info = message_array
+        else:
+            print("[ERROR] - Message is too short or message type is not recognized")
 
-        return {
-            "type": msg[0],
-            "device_id": msg[1:4],
-            "timestamp": msg[4:11],
-            "additional_info": msg[11:]
-        }
+    def __str__(self) -> str:
+        return f"Message({self.type}-{self.device_id}-{self.timestamp}-{self.additional_info})"
 
+# Print debug messages
+def debug_print(message: str):
+    if debugMode:
+        print("[DEBUG] - ", message)
+
+def push_message_to_logfile(message: Message):
+    
+    log_message = time.strftime("%Y-%m-%d %H:%M:%S") + ": [ Alert ] -" + "Device: " + message.device_id + ", " + message.additional_info
+    
+    if os.path.isfile(fileAddress):
+        with open(fileAddress, 'a') as data:
+            data.write(log_message + '\n')
+            debug_print(f"Data added to log file at location {fileAddress}")
+    else:
+        with open(fileAddress, 'w') as data:
+            data.write(log_message + '\n')
+            debug_print(f"File created & data added to log file at location {fileAddress}")
+    
 def send_position_to_robot(x, y, z=0.0, ox=0.0, oy=0.0, oz=0.0, ow=1.0):
     pub = rospy.Publisher('/alert', Pose, queue_size=10)
     rospy.init_node('alert_publisher', anonymous=True)
@@ -112,7 +146,7 @@ def send_position_to_robot(x, y, z=0.0, ox=0.0, oy=0.0, oz=0.0, ow=1.0):
     pose.orientation.w = ow
     
     rospy.loginfo(f"Publishing alert position: x={x}, y={y}, z={z}")
-    for _ in range(5):  # Publish a few times for reliability
+    for _ in range(2):  # Publish a few times for reliability
         pub.publish(pose)
         rate.sleep()
 
@@ -124,48 +158,64 @@ def read_until_marker(device, end_marker="#"):
         if char == end_marker:
             return buffer
 
-def handle_message_type(message):
+def handle_message_by_type(message: Message):
     
-    type = message["type"]
+    type = message.type
     time = datetime.now()
     
-    print("Type: ", message["type"])
-    print("Device: ", message["device_id"])
-    if message["additional_info"]:
-        print("Additional info: ", message["additional_info"])
-
+    print("[INFO] - Message:")
+    print("Type: ", message.type)
+    print("Device: ", message.device_id)
+    
+    if message.additional_info:
+        print("Additional info: ", message.additional_info)
+    
+    push_message_to_logfile(message)
+    
     # Healthcheck message
     if type == "H":
-        devices[message["device_id"]] = time.time()
         
-        log_message = time.strftime("%Y-%m-%d %H:%M:%S") + ": [" + message["type"] + "] " + "Device: " + message["device_id"] + ", " + message["additional_info"]
-        if os.path.isfile(fileAddress):
-            with open(fileAddress, 'a') as data:
-                data.write(log_message)
-        else:
-            with open(fileAddress, 'w') as data:
-                data.write(log_message)
-
-    # Alert message    
+        debug_print(f"Healthcheck received from {message.device_id}: {message}")
+        debug_print(f"Status of device {message.device_id} before: {devices[message.device_id]['last_healthcheck']}")
+        
+        devices[message.device_id]["last_healthcheck"] = time.time()
+        debug_print(f"Status of device {message.device_id} after: {devices[message.device_id]['last_healthcheck']}")
+        
+    # Alert message
     elif type == "A":
-        coord = devices[message["device_id"]]["coordinates"]
+        
+        debug_print(f"Alert! received from {message.device_id}: {message}")
+        
+        coord = devices[message.device_id]["coordinates"]
         send_position_to_robot(coord["x"], coord["y"])
     else:
-        print("Invalid message")
+        print("[WARN] - Invalid message type")
 
 def main():
+    
+    print("--- Program started: ready to receive messages ---")
+    
     device = Device(port, baudrate)
-    main.last_health_check = time.time()
+    debug_print(str(device))
+    
+    # Define timer to check for healthcheck message reception
+    current_time = time.time()
+    main.last_health_check = current_time
 
     while True:
-        message = read_until_marker(device, end_marker="#")
-        print("Full message:", message)
+        received_string = read_until_marker(device, end_marker="#")
+        if received_string:
+            debug_print(received_string)
+
+            # Create message
+            try:
+                message = Message(received_string)
+                debug_print(f"Message successfully created: {str(message)}")
+            except Exception as e:
+                print(f"[WARN]: Failed to parse message. Error: {e}")
+                continue
         
-        # Parse message
-        new_message = Message(message)
-        decrypted_message = new_message.split_elements()
-        
-        handle_message_type(decrypted_message)
+            handle_message_by_type(message)
             
         # Check every device health
         current_time = time.time()
@@ -173,12 +223,12 @@ def main():
         if current_time - main.last_health_check >= 600:  # 10 minutes
             all_healthy = all(current_time - device_info["last_healthcheck"] <= 600 for device_info in devices.values())
             if all_healthy:
-                print("All devices are healthy.")
+                print("[INFO] - All devices are healthy.")
             else:
-                print("Some devices are not healthy.")
+                print("[WARNING] - Some devices are not healthy.")
                 for device_id, device_info in devices.items():
                     if current_time - device_info["last_healthcheck"] >= 600:
-                        print(f"Device {device_id} is not healthy. Coordinates: {device_info['coordinates']}")
+                        print(f"[INFO] - Device {device_id} is not healthy. Coordinates: {device_info['coordinates']}")
             main.last_health_check = current_time
 
 if __name__ == "__main__":
