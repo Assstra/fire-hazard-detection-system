@@ -70,7 +70,7 @@ Breakdown of the files usage:
 - [`navigation.py`](./scripts/navigation.py): the core logic behind the robot movements on the map
 - [`motion.py`](./scripts/motion.py): the basic commands to move the robot
 - [`search.py`](./scripts/search.py): the logic for connecting to the "fire detection server". Blocking, so typically run in another process
-- [`receiver.py`](./scripts/receiver.py): the logic for receiving LoRa data from a LoRa module. Blocking, so typically run in another process
+- [`serial_listener.py`](./scripts/serial_listener.py): the logic for receiving LoRa data from a LoRa module. Blocking, so typically run in another process
 
 ## Miscellaneous
 

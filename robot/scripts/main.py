@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import multiprocessing
 import global_vars
 import rospy
 import sys
@@ -9,6 +10,7 @@ from navigation import load_waypoints_from_file
 from callbacks import alert_callback, pose_callback
 from statemachine import robot_statemachine
 from motion import go_to_position
+from serial_listener import main as serial_main
 from move_base_msgs.msg import MoveBaseAction
 
 
@@ -69,14 +71,17 @@ def main():
             rospy.logerr(e)
             rospy.logerr("Usage: --host <hostname> --port <port>")
             exit(1)
-
+            
+    p = multiprocessing.Process(target=serial_main)
     try:
         result = robot_statemachine()
+        p.start()
         if result:
             rospy.loginfo("Goal execution done!")
     except rospy.ROSInterruptException:
         rospy.loginfo("Navigation test finished.")
     rospy.spin()
+    p.kill()
 
 
 if __name__ == "__main__":
