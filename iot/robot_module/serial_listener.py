@@ -1,7 +1,6 @@
 import serial
 import time
 import os
-from datetime import datetime
 from typing import Dict
 import rospy
 from geometry_msgs.msg import Pose
@@ -161,7 +160,7 @@ def read_until_marker(device, end_marker="#"):
 def handle_message_by_type(message: Message):
     
     type = message.type
-    time = datetime.now()
+    currentTime = time.time()
     
     print("[INFO] - Message:")
     print("Type: ", message.type)
@@ -178,7 +177,7 @@ def handle_message_by_type(message: Message):
         debug_print(f"Healthcheck received from {message.device_id}: {message}")
         debug_print(f"Status of device {message.device_id} before: {devices[message.device_id]['last_healthcheck']}")
         
-        devices[message.device_id]["last_healthcheck"] = time.time()
+        devices[message.device_id]["last_healthcheck"] = currentTime
         debug_print(f"Status of device {message.device_id} after: {devices[message.device_id]['last_healthcheck']}")
         
     # Alert message
