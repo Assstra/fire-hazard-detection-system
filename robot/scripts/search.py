@@ -2,13 +2,17 @@ from multiprocessing.connection import Connection
 import requests
 import json
 import time
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 import rospy
 
 
 def parse_sse_event(line: str) -> Dict[str, Any]:
-    """Parse SSE event line"""
+    """
+    Parse SSE event json from a line.
+    :param line: The line from the SSE stream.
+    :return: Parsed event data as a dictionary.
+    """
     if line.startswith("data: "):
         try:
             return json.loads(line[6:])  # Remove 'data: ' prefix
@@ -19,7 +23,10 @@ def parse_sse_event(line: str) -> Dict[str, Any]:
 
 
 def print_event(event_data: Dict[str, Any]):
-    """Print event data in a formatted way, or send via pipe if provided"""
+    """
+    Print event data in a formatted way, or send via pipe if provided
+    :param event_data: The parsed event data.
+    """
     event_type = event_data.get("type", "unknown")
     timestamp = time.strftime("%H:%M:%S")
 
@@ -36,7 +43,10 @@ def print_event(event_data: Dict[str, Any]):
 
 
 def test_server_endpoints(base_url: str):
-    """Test basic server endpoints"""
+    """
+    Test basic server endpoints
+    :param base_url: The base URL of the server.
+    """
     rospy.loginfo("Testing server endpoints...")
 
     # Test root endpoint
@@ -77,11 +87,14 @@ def test_server_endpoints(base_url: str):
     except Exception as e:
         rospy.logerr(f"✗ Model info endpoint error: {e}")
 
-    print()
 
-
-def stream_detections(base_url: str, pipe: Connection = None, video_source: int = 0):
-    """Connect to SSE stream and display detection events, or send via pipe if provided"""
+def stream_detections(base_url: str, pipe: Optional[Connection] = None, video_source: Optional[int] = 0):
+    """
+    Connect to SSE stream and display detection events, or send via pipe if provided
+    :param base_url: The base URL of the server.
+    :param pipe: Optional multiprocessing connection to send events.
+    :param video_source: Optional video source index for the stream.
+    """
     stream_url = f"{base_url}/events"
 
     if video_source != 0:
@@ -120,7 +133,13 @@ def stream_detections(base_url: str, pipe: Connection = None, video_source: int 
             rospy.logerr(f"Unexpected error: {e}")
 
 
-def search(host: str, port: int, pipe: Connection = None):
+def search(host: str, port: int, pipe: Optional[Connection] = None):
+    """
+    Search for fire hazards using the detection server.
+    :param host: The hostname of the detection server.
+    :param port: The port of the detection server.
+    :param pipe: Optional connection to send events.
+    """
     base_url = f"http://{host}:{port}"
 
     if pipe is None:

@@ -13,6 +13,10 @@ from move_base_msgs.msg import MoveBaseAction
 
 
 def main():
+    """
+    Main function to initialize the robot state machine, subscribers, and handle command line arguments.
+    """
+    # Initialize global variables
     global_vars.init_global_vars()
     rospy.init_node("check_odometry")
     rospy.Subscriber("/amcl_pose", PoseWithCovarianceStamped, pose_callback)

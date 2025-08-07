@@ -1,6 +1,6 @@
 import math
 import actionlib
-from navigation import is_near_goal, send_patrol_goal
+from navigation import is_near_target, send_patrol_goal
 import rospy
 from geometry_msgs.msg import Pose, Twist
 from navigation import get_nearest_waypoint, get_waypoint_path
@@ -9,6 +9,11 @@ import tf.transformations
 
 
 def turn_robot(angular_z: float, duration: float = 1.0) -> None:
+    """
+    Turn the robot at a specified angular velocity for a given duration.
+    :param angular_z: Angular velocity in radians per second.
+    :param duration: Duration to turn in seconds.
+    """
     pub = rospy.Publisher("/cmd_vel", Twist, queue_size=10)
     twist = Twist()
     twist.angular.z = angular_z
@@ -22,6 +27,11 @@ def turn_robot(angular_z: float, duration: float = 1.0) -> None:
 
 
 def turn_to_position(current_position: Pose, next_position: Pose) -> None:
+    """
+    Turn the robot to face another position.
+    :param current_position: The robot's current position.
+    :param next_position: The position to which the robot should turn.
+    """
     dx = next_position.position.x - current_position.position.x
     dy = next_position.position.y - current_position.position.y
     desired_yaw = math.atan2(dy, dx)
@@ -44,6 +54,10 @@ def turn_to_position(current_position: Pose, next_position: Pose) -> None:
 
 
 def turn_degree(degrees: float) -> None:
+    """
+    Turn the robot by a specified number of degrees.
+    :param degrees: The angle in degrees to turn.
+    """
     radians = math.radians(degrees)
     angular_z = 0.3 if radians >= 0 else -0.3
     turn_duration = abs(radians) / 0.3
@@ -54,6 +68,11 @@ def turn_degree(degrees: float) -> None:
 
 
 def go_to_position(client: actionlib.SimpleActionClient, target: Pose) -> None:
+    """
+    Navigate the robot to a specified target position.
+    :param client: The action client for move_base.
+    :param target: The target position to navigate to.
+    """
     if global_vars.current_position is None:
         rospy.logwarn("Current position unknown, cannot navigate.")
         return
@@ -85,7 +104,7 @@ def go_to_position(client: actionlib.SimpleActionClient, target: Pose) -> None:
         goal_active = True
         while goal_active and not rospy.is_shutdown():
             state = client.get_state()
-            if state == actionlib.GoalStatus.SUCCEEDED or is_near_goal(
+            if state == actionlib.GoalStatus.SUCCEEDED or is_near_target(
                 goal_pose, global_vars.current_position
             ):
                 rospy.loginfo(f"Reached waypoint {waypoint}")
