@@ -5,7 +5,7 @@ SoftwareSerial es920(UART_RX, UART_TX);
 
 // Healthcheck timing
 unsigned long lastHealthcheckTime = 0;
-const unsigned long healthcheckInterval = 5000; // 5 seconds
+const unsigned long healthcheckInterval = 20000; // 20 seconds
 
 void setup() {
   // Hardware serial (via USB)
@@ -23,10 +23,18 @@ void loop() {
   
   // Send healthcheck message every 5 seconds
   if (currentTime - lastHealthcheckTime >= healthcheckInterval) {
+    es920.print("A");
+    es920.print("-");
+    es920.print("005");
+    es920.print("-");
     es920.print(currentTime);
-    es920.println(" : HEALTHCHECK_OK");
+    es920.print("-");
+    es920.print("208.80");
+    es920.println("#");
+    
     Serial.print(currentTime);
-    Serial.println(": Healthcheck sent to ES920");
+    Serial.println(": Alert sent to ES920");
+    
     lastHealthcheckTime = currentTime;
   }
 }
