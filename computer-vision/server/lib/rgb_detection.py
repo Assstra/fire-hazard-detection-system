@@ -176,7 +176,9 @@ class RgbDetectionService:
                 case _:
                     color = (255, 0, 255)
             cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
-            utils_frame_text(frame, f"[{conf:.2f}] {class_name}", (int(x1), int(y1) - 10), color)
+            utils_frame_text(
+                frame, f"[{conf:.2f}] {class_name}", (int(x1), int(y1) - 10), color
+            )
 
     def add_timestamp(self, frame: np.ndarray):
         """Add timestamp to frame"""

@@ -23,7 +23,11 @@ video_rgb_stream_service: Optional[VideoStreamingService] = None
 
 def create_app(args: argparse.Namespace) -> FastAPI:
     """Create FastAPI application with detection service"""
-    global rgb_video_writer, rgb_detect_service, event_streamer, video_rgb_stream_service
+    global \
+        rgb_video_writer, \
+        rgb_detect_service, \
+        event_streamer, \
+        video_rgb_stream_service
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
