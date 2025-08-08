@@ -2,7 +2,6 @@ import asyncio
 import logging
 from typing import AsyncGenerator
 from sse_starlette import JSONServerSentEvent
-
 from lib.rgb_detection import RgbDetectionService
 
 logger = logging.getLogger(__name__)
@@ -36,9 +35,6 @@ class EventStreamer:
             )
 
             async for detection_event in detection_gen:
-                if stream_id not in self.active_streams:
-                    break
-
                 yield JSONServerSentEvent(data=detection_event)
 
         except Exception as e:
