@@ -5,7 +5,8 @@ from typing import Any, AsyncGenerator, Dict, Optional
 import cv2
 import numpy as np
 from flirpy.camera.lepton import Lepton
-from lib import utils_frame_text
+from lib import DetectionKind, Position, utils_frame_text
+from lib.video_streaming import VideoStreamingService
 from lib.video_writer import VideoWriterService
 
 
@@ -17,8 +18,10 @@ class InfraredDetectionService:
     def __init__(
         self,
         video_writer_svc: Optional[VideoWriterService] = None,
+        video_streaming_svc: Optional[VideoStreamingService] = None,
     ):
         self.video_writer_svc = video_writer_svc
+        self.video_streaming_svc = video_streaming_svc
         self.cam = Lepton()
         self.cam.setup_video()
         if not self.cam.cap.isOpened():
@@ -27,6 +30,9 @@ class InfraredDetectionService:
             width=int(self.cam.cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
             height=int(self.cam.cap.get(cv2.CAP_PROP_FRAME_HEIGHT) - TELEMETRY_H),
         )
+
+    def close(self):
+        self.cam.close()
 
     def detect_from_video_stream(self) -> AsyncGenerator[Dict[str, Any], None]:
         """Generator for continuous video detection"""
@@ -48,13 +54,13 @@ class InfraredDetectionService:
 
                     # Gray16
                     frame_16 = frame.view(np.uint16)
-                    frame_16 = frame_16[:-2, :]  # remove telemetry
+                    frame_16 = frame_16[:-TELEMETRY_H, :]  # remove telemetry
 
                     # Gray8 to visualize
                     norm_frame = cv2.normalize(frame_16, None, 0, 255, cv2.NORM_MINMAX)
                     norm_frame = norm_frame.astype(np.uint8)
 
-                    # Add frame to [] (in COLORMAP_JET, COLORMAP_INFERNO or COLORMAP_HOT)
+                    # COLORMAP_JET, COLORMAP_INFERNO or COLORMAP_HOT
                     color_frame = cv2.applyColorMap(norm_frame, cv2.COLORMAP_JET)
                     # frames.append(
                     #     {"gray16": frame_16, "gray8": norm_frame, "color": color_frame}
@@ -64,7 +70,22 @@ class InfraredDetectionService:
                         f"Temperature: {np.mean(frame_16):.2f}°C",
                         (10, 20),
                     )
-                    self.video_writer_svc.write_frame(color_frame)
+                    if self.video_writer_svc:
+                        self.video_writer_svc.write_frame(color_frame)
+                    if self.video_streaming_svc:
+                        self.video_streaming_svc.write_frame(color_frame)
+
+                    event_data = {
+                        "type": DetectionKind.IR,
+                        "position": Position.NONE,
+                        "timestamp_start": timestamp_start,
+                        # "frame_info": {
+                        #     "width": frame.shape[1],
+                        #     "height": frame.shape[0],
+                        #     "channels": frame.shape[2],
+                        # },
+                    }
+                    yield event_data
 
                     # we wait for the remaining time, if it didn't take the full second
                     elapsed_time = time.time() - timestamp_start
@@ -79,13 +100,13 @@ class InfraredDetectionService:
 
         return detection_generator()
 
-    def add_bounding_boxes_to_frame(
-        self, image: np.ndarray, boxes: list[tuple[float, float, float, float]]
-    ) -> np.ndarray:
-        for box in boxes:
-            x1, y1, x2, y2 = map(int, box)
-            cv2.rectangle(image, (x1, y1), (x2, y2), (255, 255, 255), 2)
-        return image
+    # def add_bounding_boxes_to_frame(
+    #     self, image: np.ndarray, boxes: list[tuple[float, float, float, float]]
+    # ) -> np.ndarray:
+    #     for box in boxes:
+    #         x1, y1, x2, y2 = map(int, box)
+    #         cv2.rectangle(image, (x1, y1), (x2, y2), (255, 255, 255), 2)
+    #     return image
 
 
 class CameraInformation:
@@ -94,12 +115,12 @@ class CameraInformation:
         self.height = height
 
 
-class Box:
-    def __init__(self, x: float, y: float, size: int, temperature: float):
-        self.x = x
-        self.y = y
-        self.size = size
-        self.temperature = temperature
+# class Box:
+#     def __init__(self, x: float, y: float, size: int, temperature: float):
+#         self.x = x
+#         self.y = y
+#         self.size = size
+#         self.temperature = temperature
 
-    def xyxy(self) -> tuple[float, float, float, float]:
-        return (self.x, self.y, self.x + self.size, self.y + self.size)
+#     def xyxy(self) -> tuple[float, float, float, float]:
+#         return (self.x, self.y, self.x + self.size, self.y + self.size)
