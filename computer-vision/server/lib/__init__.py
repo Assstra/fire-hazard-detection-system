@@ -21,7 +21,7 @@ def utils_frame_text(
     frame: np.ndarray,
     text: str,
     position: tuple[int, int],
-    color: tuple[int, int, int],
+    color: tuple[int, int, int] = (255, 255, 255),
     thickness: int = 1,
 ) -> np.ndarray:
     """Utility function to put text on the frame"""
@@ -30,7 +30,7 @@ def utils_frame_text(
         text,
         position,
         cv2.FONT_HERSHEY_SIMPLEX,
-        1.0,
+        0.75,
         color,
         thickness,
     )
