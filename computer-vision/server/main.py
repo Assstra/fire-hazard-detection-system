@@ -3,12 +3,14 @@ from contextlib import asynccontextmanager
 import time
 from typing import Optional
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 from sse_starlette.sse import EventSourceResponse
 import logging
 
 from lib.event_streaming import EventStreamer
 from lib.video_writer import VideoWriterService
 from lib.rgb_detection import RgbDetectionService
+from lib.video_streaming import VideoStreamingService
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -16,11 +18,12 @@ logger = logging.getLogger(__name__)
 rgb_video_writer: Optional[VideoWriterService] = None
 rgb_detect_service: Optional[RgbDetectionService] = None
 event_streamer: Optional[EventStreamer] = None
+video_rgb_stream_service: Optional[VideoStreamingService] = None
 
 
 def create_app(args: argparse.Namespace) -> FastAPI:
     """Create FastAPI application with detection service"""
-    global rgb_video_writer, rgb_detect_service, event_streamer
+    global rgb_video_writer, rgb_detect_service, event_streamer, video_rgb_stream_service
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -39,8 +42,12 @@ def create_app(args: argparse.Namespace) -> FastAPI:
             frame_height=480,
             fps=1,
         )
+
+    video_rgb_stream_service = VideoStreamingService()
+
+    # Create RGB detection service with video streaming service
     rgb_detect_service = RgbDetectionService(
-        args.model, args.confidence, rgb_video_writer
+        args.model, args.confidence, rgb_video_writer, video_rgb_stream_service
     )
     event_streamer = EventStreamer(rgb_detect_service)
 
@@ -53,13 +60,14 @@ def create_app(args: argparse.Namespace) -> FastAPI:
     @app.get("/")
     async def root():
         return {
-            "message": app.title,
             "model_path": args.model,
             "endpoints": {
                 "health": "/health",
                 "events": "/events",
                 "model_info": "/model/info",
+                "video_stream": "/video/rgb",
             },
+            "args": args.__dict__,
         }
 
     @app.get("/health")
@@ -84,7 +92,7 @@ def create_app(args: argparse.Namespace) -> FastAPI:
         }
 
     @app.get("/events")
-    async def stream_detections(video_source: int = 0):
+    async def stream_detections():
         """Stream detection events via SSE"""
         if rgb_detect_service is None:
             raise HTTPException(
@@ -92,8 +100,24 @@ def create_app(args: argparse.Namespace) -> FastAPI:
             )
 
         return EventSourceResponse(
-            event_streamer.stream_detections(video_source),
+            event_streamer.stream_detections(args.video_input),
             media_type="text/event-stream",
+        )
+
+    @app.get("/video/rgb")
+    async def video_stream(quality: int = 80):
+        """Stream processed video with detections (MJPEG format)"""
+        if video_rgb_stream_service is None:
+            raise HTTPException(
+                status_code=500, detail="Video streaming service not initialized"
+            )
+
+        # Set quality for streaming
+        video_rgb_stream_service.set_quality(quality)
+
+        return StreamingResponse(
+            video_rgb_stream_service.generate_frames(),
+            media_type="multipart/x-mixed-replace; boundary=frame",
         )
 
     return app
@@ -122,8 +146,14 @@ def parse_args():
         help="Sets the minimum confidence threshold for detections (default: 0.25)",
     )
     parser.add_argument(
+        "--video-input",
+        "-vi",
+        default=0,
+        help="Video input source (default: 0 for webcam, can be a file path or camera index)",
+    )
+    parser.add_argument(
         "--video-output",
-        "-v",
+        "-vo",
         type=str,
         default=None,
         help="Path to save the output video with detections (default: None, no video output)",
@@ -141,7 +171,6 @@ def main():
 
     logger.info(f"Starting server with model: {args.model}")
     logger.info(f"Server will be available at http://{args.host}:{args.port}")
-    logger.info("Detection event stream endpoint: /events")
 
     # Run server
     uvicorn.run(app, host=args.host, port=args.port)

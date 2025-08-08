@@ -73,12 +73,17 @@ Returns loaded model details including class names and configuration.
 
 #### Detection Stream (SSE)
 ```
-GET /events?video_source=0
+GET /events
 ```
 Streams detection events in real-time via Server-Sent Events.
 
-Query parameters:
-- `video_source`: Video source index (default: 0 for webcam)
+#### Live real-time Video Stream
+
+For RGB camera:
+
+```
+GET /video/rgb
+```
 
 ## Testing
 
