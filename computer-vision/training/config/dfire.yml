@@ -1,5 +1,5 @@
 # see: https://docs.ultralytics.com/datasets/detect/#ultralytics-yolo-format
-path: ../data/D-Fire
+path: ./data/D-Fire
 train: train
 val: val
 

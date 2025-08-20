@@ -1,0 +1,14 @@
+services:
+  trainer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # runtime: nvidia
+    # ipc: host
+    # ulimits:
+    #   memlock: -1
+    #   stack: 67108864
+    environment:
+      EPOCHS: 10
+    volumes:
+      - ./data:/ultralytics/data
