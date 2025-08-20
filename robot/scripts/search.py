@@ -28,7 +28,6 @@ def print_event(event_data: Dict[str, Any]):
     :param event_data: The parsed event data.
     """
     event_type = event_data.get("type", "unknown")
-    timestamp = time.strftime("%H:%M:%S")
 
     if event_type == "connected":
         stream_id = event_data.get("stream_id", "unknown")
@@ -36,10 +35,15 @@ def print_event(event_data: Dict[str, Any]):
     elif event_type == "error":
         message = event_data.get("message", "Unknown error")
         stream_id = event_data.get("stream_id", "unknown")
-        rospy.logwarn(f"[{timestamp}] Error in stream {stream_id}: {message}")
+        rospy.logwarn(f"Error in stream {stream_id}: {message}")
+
+    elif event_type == "rgb_detection":
+        position = event_data.get("position", "unknown")
+        confidence = event_data.get("confidence", 0.0)
+        rospy.loginfo(f"Detected RGB event - Position: {position}, Confidence: {confidence}")
 
     else:
-        rospy.loginfo(f"[{timestamp}] Unknown event type: {event_type}")
+        rospy.loginfo(f"Unknown event type: {event_type}")
 
 
 def test_server_endpoints(base_url: str):
