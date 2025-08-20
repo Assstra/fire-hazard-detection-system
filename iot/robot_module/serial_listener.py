@@ -1,6 +1,8 @@
 import serial
+import pyudev
 import time
 import os
+from datetime import datetime
 from typing import Dict
 import rospy
 from geometry_msgs.msg import Pose
@@ -19,8 +21,7 @@ from geometry_msgs.msg import Pose
 #   Retry count                 : 3
 #   Transfer Mode               : Payload
 #   Receive Node ID information : OFF
-    
-port = "/dev/ttyUSB1"
+
 baudrate = 115200
 
 devices: Dict = {
@@ -75,7 +76,6 @@ class Message:
     device_id: str
     timestamp: str
     additional_info: str
-    test: str
     
     def check_integrity(self, message: str):
         if not message or len(message) < 11:
@@ -129,7 +129,18 @@ def push_message_to_logfile(message: Message):
         with open(fileAddress, 'w') as data:
             data.write(log_message + '\n')
             debug_print(f"File created & data added to log file at location {fileAddress}")
-    
+
+def get_device_tty():
+    context = pyudev.Context()
+    for device in context.list_devices(subsystem='tty'):
+        if device.device_node and device.device_node.startswith('/dev/ttyUSB'):
+            name = device.properties.get('ID_MODEL_FROM_DATABASE', '')
+            vendor = device.properties.get('ID_VENDOR_FROM_DATABASE', '')
+            if (name == "FT232 Serial (UART) IC" and
+                vendor == "Future Technology Devices International, Ltd"):
+                return str(device.device_node)
+        return None
+
 def send_position_to_robot(x, y, z=0.0, ox=0.0, oy=0.0, oz=0.0, ow=1.0):
     pub = rospy.Publisher('/alert', Pose, queue_size=10)
     rospy.init_node('alert_publisher', anonymous=True)
@@ -160,7 +171,7 @@ def read_until_marker(device, end_marker="#"):
 def handle_message_by_type(message: Message):
     
     type = message.type
-    currentTime = time.time()
+    time = datetime.now()
     
     print("[INFO] - Message:")
     print("Type: ", message.type)
@@ -177,7 +188,7 @@ def handle_message_by_type(message: Message):
         debug_print(f"Healthcheck received from {message.device_id}: {message}")
         debug_print(f"Status of device {message.device_id} before: {devices[message.device_id]['last_healthcheck']}")
         
-        devices[message.device_id]["last_healthcheck"] = currentTime
+        devices[message.device_id]["last_healthcheck"] = time.time()
         debug_print(f"Status of device {message.device_id} after: {devices[message.device_id]['last_healthcheck']}")
         
     # Alert message
@@ -193,6 +204,16 @@ def handle_message_by_type(message: Message):
 def main():
     
     print("--- Program started: ready to receive messages ---")
+    
+    try:
+        port = get_device_tty()
+        debug_print(f"TTY port found: {port}")
+        if port is None:
+            print("[ERROR]: No valid TTY port found. Exiting.")
+            return
+    except Exception as e:
+        print(f"[WARN]: Failed to parse message. Error: {e}")
+        return
     
     device = Device(port, baudrate)
     debug_print(str(device))
