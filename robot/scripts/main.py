@@ -28,6 +28,11 @@ def main():
         global_vars.debug = True
         rospy.loginfo("[DEBUG MODE] Patrol mode will be disabled.")
         rospy.loginfo("[DEBUG MODE] Alert will only be displayed.")
+    
+    if "--alert" in sys.argv or "-a" in sys.argv:
+        global_vars.alert_mode = True
+        rospy.loginfo("[ALERT MODE] Patrol mode will be disabled.")
+        rospy.loginfo("[ALERT MODE] Only alerts and search will be processed.")
 
     waypoints_file = None
     if "--waypoints" in sys.argv:
@@ -72,6 +77,7 @@ def main():
             rospy.logerr("Usage: --host <hostname> --port <port>")
             exit(1)
             
+    # Start serial_listener
     p = multiprocessing.Process(target=serial_main)
     try:
         result = robot_statemachine()

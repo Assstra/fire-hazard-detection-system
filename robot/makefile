@@ -18,6 +18,12 @@ debug:
 debug_dx:
 	rosrun fire-hazard-detection-system main.py --waypoints waypoints/dx.txt --debug
 
+alert:
+	rosrun fire-hazard-detection-system main.py --waypoints waypoints/campus.txt --alert
+
+alert_dx:
+	rosrun fire-hazard-detection-system main.py --waypoints waypoints/dx.txt --alert
+
 topic:
 	    @if [ -z "$(X)" ] || [ -z "$(Y)" ]; then \
         echo "Usage: make topic X=<x> Y=<y>"; \

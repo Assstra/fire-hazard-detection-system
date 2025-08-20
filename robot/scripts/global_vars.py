@@ -5,8 +5,9 @@ def init_global_vars():
     """
     Initialize global variables for the robot state machine.
     """
-    global debug, current_position, current_state, alert_pose, current_goal, waypoints, host, port
+    global debug, alert_mode, current_position, current_state, alert_pose, current_goal, waypoints, host, port
     debug = False  #: bool If True, disables patrol mode for testing
+    alert_mode = False  #: bool If True, disables patrol mode and only processes alerts and search
     current_state = RobotState.PATROL  #: RobotState  Current robot state
     alert_pose = None  #: Optional[Pose] Pose to respond to in ALERT state
     current_goal = None  #: Optional[int] Current goal index or "ALERT"

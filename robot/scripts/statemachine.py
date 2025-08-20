@@ -199,7 +199,7 @@ def robot_statemachine() -> bool:
             if alert_done:
                 global_vars.current_state = RobotState.SEARCH
                 global_vars.alert_pose = None
-        elif global_vars.current_state == RobotState.PATROL and not global_vars.debug:
+        elif global_vars.current_state == RobotState.PATROL and not global_vars.debug and not global_vars.alert_mode:
             goal_active, global_vars.current_goal, waypoint_idx = handle_patrol(
                 client, goal_active, global_vars.current_goal, waypoint_idx
             )
