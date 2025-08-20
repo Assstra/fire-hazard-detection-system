@@ -3,7 +3,6 @@ import time
 import asyncio
 from fastapi import FastAPI, Request, Form
 from fastapi.responses import StreamingResponse, HTMLResponse, RedirectResponse
-from fastapi.staticfiles import StaticFiles
 
 app = FastAPI()
 
@@ -14,14 +13,14 @@ def sse_format(data):
     return f"data: {json.dumps(data)}\n\n"
 
 @app.get("/", response_class=HTMLResponse)
-async def index():
+async def root():
     return '''
         <h2>Send SSE Event</h2>
         <form method="post" action="/send">
             <label>Type:</label>
             <select name="type">
-                <option value="connected">connected</option>
                 <option value="rgb_detection">rgb_detection</option>
+                <option value="connected">connected</option>
                 <option value="error">error</option>
             </select><br>
             <label>Stream ID:</label><input name="stream_id" value="mock_stream_1"><br>
@@ -33,7 +32,7 @@ async def index():
                 <option value="center">center</option>
                 <option value="none">none</option>
             </select><br>
-            <label>Timestamp Start (for detection):</label><input name="timestamp_start" type="number" step="any"><br>
+            <label>Timestamp Start (for detection):</label><input name="timestamp_start" type="number" step="any" value="0"><br>
             <label>Frame Width:</label><input name="frame_width" type="number" value="640"><br>
             <label>Frame Height:</label><input name="frame_height" type="number" value="480"><br>
             <label>Frame Channels:</label><input name="frame_channels" type="number" value="3"><br>
@@ -48,7 +47,7 @@ async def send_event(
     stream_id: str = Form("mock_stream_1"),
     message: str = Form(""),
     position: str = Form("none"),
-    timestamp_start: float = Form(None),
+    timestamp_start: float = Form(0),
     frame_width: int = Form(640),
     frame_height: int = Form(480),
     frame_channels: int = Form(3)
