@@ -126,9 +126,9 @@ def handle_search() -> bool:
 
     rospy.loginfo("Started search process, waiting for events...")
     try:
+        last_move = ""
+        turn_angle = 15
         while p.is_alive():
-            turn_angle = 15
-            last_move = ""
             if parent_conn.poll(1):  # Wait up to 1 second for event
                 event = parent_conn.recv()
 
@@ -136,19 +136,21 @@ def handle_search() -> bool:
                 if event.get("type") == "rgb_detection":
                     if event.get("position") == "left":
                         if last_move != "" and last_move != "left":
-                            turn_angle /= 2
-                        turn_degree(-turn_angle)
+                            turn_angle = turn_angle / 2
+                        turn_degree(turn_angle)
                     elif event.get("position") == "right":
                         if last_move != "" and last_move != "right":
-                                turn_angle /= 2
-                        turn_degree(turn_angle)
+                            turn_angle = turn_angle / 2
+                        turn_degree(-turn_angle)
                     elif event.get("position") == "center":
                         rospy.loginfo("Fire hazard detected in front, stopping search.")
                         # kill the connection process to the search server
                         p.kill()
                         break
+                    else:
+                        rospy.loginfo(f"Unknown position detected: {event.get('position')}")
                     last_move = event.get("position")
-
+                    
                 # Break on error
                 if event.get("type") == "error":
                     rospy.logwarn(f"Search process error: {event.get('message')}")
@@ -175,7 +177,6 @@ def robot_statemachine() -> bool:
     ALERT, PATROL, and SEARCH.
     :return: False if the robot is shutting down, run continuously otherwise.
     """
-    rospy.init_node("robot_statemachine", anonymous=True)
     client = actionlib.SimpleActionClient("move_base", MoveBaseAction)
     client.wait_for_server()
     if not global_vars.debug:
@@ -204,7 +205,7 @@ def robot_statemachine() -> bool:
             )
         elif global_vars.current_state == RobotState.SEARCH and not global_vars.debug:
             rospy.loginfo("Searching for fire hazard...")
-            search_done = handle_search(client)
+            search_done = handle_search()
             if search_done:
                 global_vars.current_state = RobotState.PATROL
                 nearest_waypoint = get_nearest_waypoint(global_vars.current_position)
