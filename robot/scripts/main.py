@@ -20,7 +20,7 @@ def main():
     """
     # Initialize global variables
     global_vars.init_global_vars()
-    rospy.init_node("check_odometry")
+    rospy.init_node("robot_statemachine")
     rospy.Subscriber("/amcl_pose", PoseWithCovarianceStamped, pose_callback)
     rospy.Subscriber("/alert", Pose, alert_callback)
 
