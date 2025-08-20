@@ -80,8 +80,8 @@ def main():
     # Start serial_listener
     p = multiprocessing.Process(target=serial_main)
     try:
-        result = robot_statemachine()
         p.start()
+        result = robot_statemachine()
         if result:
             rospy.loginfo("Goal execution done!")
     except rospy.ROSInterruptException:
