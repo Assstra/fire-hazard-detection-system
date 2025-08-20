@@ -132,7 +132,6 @@ def handle_search() -> bool:
             if parent_conn.poll(1):  # Wait up to 1 second for event
                 event = parent_conn.recv()
 
-                rospy.loginfo(f"Search event: {event}")
                 if event.get("type") == "rgb_detection":
                     if event.get("position") == "left":
                         if last_move != "" and last_move != "left":
