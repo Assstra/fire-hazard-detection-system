@@ -8,13 +8,15 @@ app = FastAPI()
 
 clients = []  # List of asyncio queues for each client
 
+
 # Helper to format SSE
 def sse_format(data):
     return f"data: {json.dumps(data)}\n\n"
 
+
 @app.get("/", response_class=HTMLResponse)
 async def root():
-    return '''
+    return """
         <h2>Send SSE Event</h2>
         <form method="post" action="/send">
             <label>Type:</label>
@@ -39,7 +41,8 @@ async def root():
             <button type="submit">Send</button>
         </form>
         <p>Connect your SSE client to <code>/events</code></p>
-    '''
+    """
+
 
 @app.post("/send")
 async def send_event(
@@ -50,7 +53,7 @@ async def send_event(
     timestamp_start: float = Form(0),
     frame_width: int = Form(640),
     frame_height: int = Form(480),
-    frame_channels: int = Form(3)
+    frame_channels: int = Form(3),
 ):
     if type == "connected":
         data = {"type": "connected", "stream_id": stream_id}
@@ -60,12 +63,14 @@ async def send_event(
         data = {
             "type": "rgb_detection",
             "position": position,
-            "timestamp_start": float(timestamp_start) if timestamp_start else time.time(),
+            "timestamp_start": float(timestamp_start)
+            if timestamp_start
+            else time.time(),
             "frame_info": {
                 "width": frame_width,
                 "height": frame_height,
-                "channels": frame_channels
-            }
+                "channels": frame_channels,
+            },
         }
     else:
         data = {"type": type, "message": message}
@@ -74,10 +79,12 @@ async def send_event(
         await q.put(data)
     return RedirectResponse(url="/", status_code=303)
 
+
 @app.get("/events")
 async def events(request: Request):
     q = asyncio.Queue()
     clients.append(q)
+
     async def event_stream():
         # Initial event
         yield sse_format({"type": "connected", "stream_id": "mock_stream_1"})
@@ -86,6 +93,8 @@ async def events(request: Request):
                 break
             data = await q.get()
             yield sse_format(data)
+
     return StreamingResponse(event_stream(), media_type="text/event-stream")
+
 
 # To run: uvicorn mock_search_server:app --reload --port 5000

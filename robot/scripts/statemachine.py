@@ -148,9 +148,11 @@ def handle_search() -> bool:
                         p.kill()
                         break
                     else:
-                        rospy.loginfo(f"Unknown position detected: {event.get('position')}")
+                        rospy.loginfo(
+                            f"Unknown position detected: {event.get('position')}"
+                        )
                     last_move = event.get("position")
-                    
+
                 # Break on error
                 if event.get("type") == "error":
                     rospy.logwarn(f"Search process error: {event.get('message')}")
@@ -199,7 +201,11 @@ def robot_statemachine() -> bool:
             if alert_done:
                 global_vars.current_state = RobotState.SEARCH
                 global_vars.alert_pose = None
-        elif global_vars.current_state == RobotState.PATROL and not global_vars.debug and not global_vars.alert_mode:
+        elif (
+            global_vars.current_state == RobotState.PATROL
+            and not global_vars.debug
+            and not global_vars.alert_mode
+        ):
             goal_active, global_vars.current_goal, waypoint_idx = handle_patrol(
                 client, goal_active, global_vars.current_goal, waypoint_idx
             )

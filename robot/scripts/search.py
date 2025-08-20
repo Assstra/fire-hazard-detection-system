@@ -40,7 +40,9 @@ def print_event(event_data: Dict[str, Any]):
     elif event_type == "rgb_detection":
         position = event_data.get("position", "unknown")
         confidence = event_data.get("confidence", 0.0)
-        rospy.loginfo(f"Detected RGB event - Position: {position}, Confidence: {confidence}")
+        rospy.loginfo(
+            f"Detected RGB event - Position: {position}, Confidence: {confidence}"
+        )
 
     else:
         rospy.loginfo(f"Unknown event type: {event_type}")
