@@ -15,6 +15,17 @@ Then, run the script the following script:
 bash scripts/extract_dfire_dataset.sh
 ```
 
+## Training the model
+
+To train the model, you can use the provided Docker Compose file. This will set up a container with all the necessary dependencies.
+
+```bash
+# assuming you are in the computer-vision/training/ folder
+docker compose up
+```
+
+And you should have the dataset `D-Fire` extracted in the `./data/` folder.
+
 ## Citations
 
 - For the D-Fire dataset: Pedro Vinícius Almeida Borges de Venâncio, Adriano Chaves Lisboa, Adriano Vilela Barbosa: [An automatic fire detection system based on deep convolutional neural networks for low-power, resource-constrained devices.](https://link.springer.com/article/10.1007/s00521-022-07467-z) In: Neural Computing and Applications, 2022.
