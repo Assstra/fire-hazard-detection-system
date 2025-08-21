@@ -1,7 +1,7 @@
 # Partially inspired by
 # https://github.com/ultralytics/ultralytics/blob/main/docker/Dockerfile
 # Use `cuda12.4`, same as installed the one on training server
-FROM pytorch/pytorch:2.6.0-cuda12.4-cudnn9-runtime
+FROM pytorch/pytorch:2.5.0-cuda12.4-cudnn9-runtime
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
