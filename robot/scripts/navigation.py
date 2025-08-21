@@ -8,37 +8,44 @@ import global_vars
 import networkx as nx
 
 
-def parse_from_file(filename: str) -> Tuple[List[Pose], nx.Graph]:
+def parse_from_file(filename: str) -> Tuple[List[Pose], nx.Graph, dict]:
     """
-    Load waypoints and build a weighted graph using networkx.
-    Each line should be in the format: "waypoint_name: x, y".
-    :param filename: The path to the file containing waypoints.
-    :return: A list of Pose objects and a networkx Graph.
+    Parse waypoint file using a state machine approach.
+    Returns waypoints, graph, and config dict (e.g. loop).
     """
     waypoints = []
     names = []
     edges = []
+    config = {}
+    section = None
     with open(filename, 'r') as f:
-        lines = f.readlines()
-
-    edge_section = False
-    for line in lines:
-        line = line.strip()
-        if not line or line.startswith('#'):
-            if line.startswith('# Edges'):
-                edge_section = True
-            continue
-        if not edge_section:
-            if ':' in line:
-                name, coords = line.split(':')
-                x, y = map(float, coords.split(','))
-                waypoints.append(make_waypoint(x, y, 0.0, 0.0, 0.0, 0.0, 1.0))
-                names.append(name.strip())
-        else:
-            if '-' in line:
-                a, b = line.split('-')
-                a, b = a.strip(), b.strip()
-                edges.append((a, b))
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            if line.startswith('#'):
+                if 'Config' in line:
+                    section = 'config'
+                elif 'Coordinates' in line:
+                    section = 'coordinates'
+                elif 'Edges' in line:
+                    section = 'edges'
+                continue
+            if section == 'config':
+                if ':' in line:
+                    key, value = line.split(':', 1)
+                    config[key.strip().lower()] = value.strip().lower() == 'true'
+            elif section == 'coordinates':
+                if ':' in line:
+                    name, coords = line.split(':', 1)
+                    x, y = map(float, coords.split(','))
+                    waypoints.append(make_waypoint(x, y, 0.0, 0.0, 0.0, 0.0, 1.0))
+                    names.append(name.strip())
+            elif section == 'edges':
+                if '-' in line:
+                    a, b = line.split('-')
+                    a, b = a.strip(), b.strip()
+                    edges.append((a, b))
 
     # Build graph with weights
     G = nx.Graph()
@@ -51,7 +58,7 @@ def parse_from_file(filename: str) -> Tuple[List[Pose], nx.Graph]:
         wp_b = waypoints[idx_b]
         dist = math.hypot(wp_a.position.x - wp_b.position.x, wp_a.position.y - wp_b.position.y)
         G.add_edge(a, b, weight=dist)
-    return waypoints, G
+    return waypoints, G, config
 
 
 def make_waypoint(

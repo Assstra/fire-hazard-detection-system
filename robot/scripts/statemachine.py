@@ -46,6 +46,9 @@ def handle_patrol(
         and is_near_target(goal_pose, global_vars.current_position)
     ):
         rospy.loginfo(f"Reached waypoint: {waypoint_idx}")
+        if waypoint_idx + 1 == len(global_vars.waypoints) and not global_vars.config.get("loop", True): # if not looping, reverse waypoints
+            rospy.loginfo("Reached last waypoint, reversing patrol direction.")
+            global_vars.waypoints.reverse()
         waypoint_idx = (waypoint_idx + 1) % len(global_vars.waypoints)
         goal_active = False
         current_goal = None
