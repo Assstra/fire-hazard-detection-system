@@ -20,7 +20,6 @@ def main():
     """
     # Initialize global variables
     global_vars.init_global_vars()
-    rospy.init_node("robot_statemachine")
     rospy.Subscriber("/amcl_pose", PoseWithCovarianceStamped, pose_callback)
     rospy.Subscriber("/alert", Pose, alert_callback)
 
@@ -81,6 +80,7 @@ def main():
     p = multiprocessing.Process(target=serial_main)
     try:
         p.start()
+        rospy.init_node("robot_statemachine")
         result = robot_statemachine()
         if result:
             rospy.loginfo("Goal execution done!")
