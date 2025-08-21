@@ -2,6 +2,7 @@ import argparse
 from contextlib import asynccontextmanager
 import time
 from typing import Optional
+import cv2
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from sse_starlette.sse import EventSourceResponse
@@ -10,24 +11,32 @@ import logging
 from lib.event_streaming import EventStreamer
 from lib.video_writer import VideoWriterService
 from lib.rgb_detection import RgbDetectionService
+from lib.ir_detection import InfraredDetectionService
 from lib.video_streaming import VideoStreamingService
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 rgb_video_writer: Optional[VideoWriterService] = None
+rgb_video_stream: Optional[VideoStreamingService] = None
 rgb_detect_service: Optional[RgbDetectionService] = None
+ir_video_writer: Optional[VideoWriterService] = None
+ir_video_stream: Optional[VideoStreamingService] = None
+ir_detect_service: Optional[InfraredDetectionService] = None
 event_streamer: Optional[EventStreamer] = None
-video_rgb_stream_service: Optional[VideoStreamingService] = None
 
 
 def create_app(args: argparse.Namespace) -> FastAPI:
-    """Create FastAPI application with detection service"""
     global \
+        raw_rgb_video_writer, \
         rgb_video_writer, \
+        rgb_video_stream, \
         rgb_detect_service, \
-        event_streamer, \
-        video_rgb_stream_service
+        raw_ir_video_writer, \
+        ir_video_writer, \
+        ir_video_stream, \
+        ir_detect_service, \
+        event_streamer
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -35,25 +44,59 @@ def create_app(args: argparse.Namespace) -> FastAPI:
         # Cleanup on shutdown
         if event_streamer:
             event_streamer.active_streams.clear()
+        if raw_rgb_video_writer:
+            raw_rgb_video_writer.release()
         if rgb_video_writer:
             rgb_video_writer.release()
+        if raw_ir_video_writer:
+            raw_ir_video_writer.release()
+        if ir_video_writer:
+            ir_video_writer.release()
+        if ir_detect_service:
+            ir_detect_service.close()
         logger.info("Server shutdown complete")
 
     if args.video_output:
+        raw_rgb_video_writer = VideoWriterService(
+            output_path=f"{args.video_output}/{time.time_ns()}_rgb_raw.mp4",
+            frame_width=640,
+            frame_height=480,
+            fps=10,
+        )
         rgb_video_writer = VideoWriterService(
             output_path=f"{args.video_output}/{time.time_ns()}_rgb.mp4",
             frame_width=640,
             frame_height=480,
-            fps=1,
+            fps=10,
+        )
+        raw_ir_video_writer = VideoWriterService(
+            output_path=f"{args.video_output}/{time.time_ns()}_ir_raw.mkv",
+            frame_width=160,
+            frame_height=120,
+            fps=10,
+            codec=cv2.VideoWriter_fourcc(*"xvid"),
+        )
+        ir_video_writer = VideoWriterService(
+            output_path=f"{args.video_output}/{time.time_ns()}_ir.mp4",
+            frame_width=160,
+            frame_height=120,
+            fps=10,
         )
 
-    video_rgb_stream_service = VideoStreamingService()
-
-    # Create RGB detection service with video streaming service
+    rgb_video_stream = VideoStreamingService()
     rgb_detect_service = RgbDetectionService(
-        args.model, args.confidence, rgb_video_writer, video_rgb_stream_service
+        args.model,
+        args.confidence,
+        raw_rgb_video_writer,
+        rgb_video_writer,
+        rgb_video_stream,
     )
-    event_streamer = EventStreamer(rgb_detect_service)
+    ir_video_stream = VideoStreamingService()
+    ir_detect_service = InfraredDetectionService(
+        raw_ir_video_writer, ir_video_writer, ir_video_stream
+    )
+
+    event_streamer = EventStreamer(rgb_detect_service, ir_detect_service)
 
     app = FastAPI(
         title="Fire/Smoke/Hot object Detection Server",
@@ -87,8 +130,6 @@ def create_app(args: argparse.Namespace) -> FastAPI:
         if rgb_detect_service.model is None:
             raise HTTPException(status_code=500, detail="Model not loaded")
 
-        print(f"Model path: {rgb_detect_service}")
-
         return {
             "model_path": rgb_detect_service.model_path,
             "class_names": rgb_detect_service.model.names,
@@ -109,18 +150,30 @@ def create_app(args: argparse.Namespace) -> FastAPI:
         )
 
     @app.get("/video/rgb")
-    async def video_stream(quality: int = 80):
-        """Stream processed video with detections (MJPEG format)"""
-        if video_rgb_stream_service is None:
+    async def video_stream_for_rgb(quality: int = 60):
+        """Stream processed video with RGB detections (MJPEG format)"""
+        if rgb_video_stream is None:
             raise HTTPException(
                 status_code=500, detail="Video streaming service not initialized"
             )
-
-        # Set quality for streaming
-        video_rgb_stream_service.set_quality(quality)
+        rgb_video_stream.set_quality(quality)
 
         return StreamingResponse(
-            video_rgb_stream_service.generate_frames(),
+            rgb_video_stream.generate_frames(),
+            media_type="multipart/x-mixed-replace; boundary=frame",
+        )
+
+    @app.get("/video/ir")
+    async def video_stream_for_ir(quality: int = 60):
+        """Stream processed video with IR detections (MJPEG format)"""
+        if ir_video_stream is None:
+            raise HTTPException(
+                status_code=500, detail="Video streaming service not initialized"
+            )
+        ir_video_stream.set_quality(quality)
+
+        return StreamingResponse(
+            ir_video_stream.generate_frames(),
             media_type="multipart/x-mixed-replace; boundary=frame",
         )
 

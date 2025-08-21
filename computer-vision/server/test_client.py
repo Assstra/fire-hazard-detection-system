@@ -35,6 +35,17 @@ def print_event(event_data: Dict[str, Any]):
         print(f"  Fire position: {fire_position}")
         print(f"  Elapsed time: {time.time() - float(timestamp_start):.4f} seconds")
 
+    elif event_type == "ir_detection":
+        pass
+        # fire_position = event_data.get("position", "unknown")
+        # timestamp_start = event_data.get("timestamp_start", "")
+        # frame_info = event_data.get("frame_info", {})
+
+        # print(f"[{timestamp}] Detection event:")
+        # print(f"  Frame: {frame_info.get('width', 0)}x{frame_info.get('height', 0)}")
+        # print(f"  Fire position: {fire_position}")
+        # print(f"  Elapsed time: {time.time() - float(timestamp_start):.4f} seconds")
+
     elif event_type == "error":
         message = event_data.get("message", "Unknown error")
         stream_id = event_data.get("stream_id", "unknown")
