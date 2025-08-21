@@ -127,7 +127,7 @@ def handle_search() -> bool:
     rospy.loginfo("Started search process, waiting for events...")
     try:
         last_move = ""
-        turn_angle = 15
+        turn_angle = 30
         while p.is_alive():
             if parent_conn.poll(1):  # Wait up to 1 second for event
                 event = parent_conn.recv()
@@ -135,11 +135,13 @@ def handle_search() -> bool:
                 if event.get("type") == "rgb_detection":
                     if event.get("position") == "left":
                         if last_move != "" and last_move != "left":
-                            turn_angle = turn_angle / 2
+                            if turn_angle > 6:
+                                turn_angle = turn_angle / 1.5
                         turn_degree(turn_angle)
                     elif event.get("position") == "right":
                         if last_move != "" and last_move != "right":
-                            turn_angle = turn_angle / 2
+                            if turn_angle > 6:
+                                turn_angle = turn_angle / 1.5
                         turn_degree(-turn_angle)
                     elif event.get("position") == "center":
                         rospy.loginfo("Fire hazard detected in front, stopping search.")
