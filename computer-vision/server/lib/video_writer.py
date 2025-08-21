@@ -9,12 +9,19 @@ logger = logging.getLogger(__name__)
 class VideoWriterService:
     """Service for writing video frames to a file"""
 
-    def __init__(self, output_path: str, frame_width: int, frame_height: int, fps: int):
+    def __init__(
+        self,
+        output_path: str,
+        frame_width: int,
+        frame_height: int,
+        fps: int,
+        codec=cv2.VideoWriter_fourcc(*"mp4v"),
+    ):
         self.video_width = frame_width
         self.video_height = frame_height
         self.video_writer = cv2.VideoWriter(
             output_path,
-            cv2.VideoWriter_fourcc(*"mp4v"),
+            codec,
             fps,
             (frame_width, frame_height),
         )

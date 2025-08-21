@@ -2,6 +2,7 @@ import argparse
 from contextlib import asynccontextmanager
 import time
 from typing import Optional
+import cv2
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from sse_starlette.sse import EventSourceResponse
@@ -69,10 +70,11 @@ def create_app(args: argparse.Namespace) -> FastAPI:
             fps=10,
         )
         raw_ir_video_writer = VideoWriterService(
-            output_path=f"{args.video_output}/{time.time_ns()}_ir_raw.mp4",
+            output_path=f"{args.video_output}/{time.time_ns()}_ir_raw.mkv",
             frame_width=160,
             frame_height=120,
             fps=10,
+            codec=cv2.VideoWriter_fourcc(*"xvid"),
         )
         ir_video_writer = VideoWriterService(
             output_path=f"{args.video_output}/{time.time_ns()}_ir.mp4",
