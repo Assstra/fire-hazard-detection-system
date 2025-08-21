@@ -14,6 +14,7 @@ def init_global_vars():
         current_goal, \
         waypoints, \
         edges, \
+        config, \
         host, \
         port
     debug = False  #: bool If True, disables patrol mode for testing
@@ -23,6 +24,7 @@ def init_global_vars():
     current_goal = None  #: Optional[int] Current goal index or "ALERT"
     current_position = None  #: Optional[Pose] Latest known robot position
     waypoints = []  #: List[Pose] List of waypoints for patrolling
-    edges = {}  #: Dict[str, List[str]] Edges between waypoints for navigation
+    edges = []  #: List[Tuple[str, str]] Edges between waypoints for navigation
+    config = {}  #: Dict[str, bool] Configuration options (e.g. loop)
     host = None  #: str Host for the fire detection server
     port = None  #: int Port for the fire detection server

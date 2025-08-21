@@ -42,7 +42,7 @@ def main():
             rospy.logerr("Usage: --waypoints <filename>")
             exit(1)
     if waypoints_file:
-        global_vars.waypoints, global_vars.edges = parse_from_file(waypoints_file)
+        global_vars.waypoints, global_vars.edges, global_vars.config = parse_from_file(waypoints_file)
         if not global_vars.waypoints:
             rospy.logerr("No waypoints loaded. Exiting.")
             exit(1)
