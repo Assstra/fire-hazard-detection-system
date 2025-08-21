@@ -6,7 +6,7 @@ import rospy
 import sys
 import actionlib
 from geometry_msgs.msg import Pose, PoseWithCovarianceStamped
-from navigation import load_waypoints_from_file
+from navigation import parse_from_file
 from callbacks import alert_callback, pose_callback
 from statemachine import robot_statemachine
 from motion import go_to_position
@@ -42,7 +42,7 @@ def main():
             rospy.logerr("Usage: --waypoints <filename>")
             exit(1)
     if waypoints_file:
-        global_vars.waypoints = load_waypoints_from_file(waypoints_file)
+        global_vars.waypoints, global_vars.edges = parse_from_file(waypoints_file)
         if not global_vars.waypoints:
             rospy.logerr("No waypoints loaded. Exiting.")
             exit(1)

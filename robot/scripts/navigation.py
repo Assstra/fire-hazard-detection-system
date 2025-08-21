@@ -5,40 +5,53 @@ from geometry_msgs.msg import Pose
 from move_base_msgs.msg import MoveBaseGoal
 from typing import List, Optional, Tuple
 import global_vars
+import networkx as nx
 
 
-def load_waypoints_from_file(filename: str) -> List[Pose]:
+def parse_from_file(filename: str) -> Tuple[List[Pose], nx.Graph]:
     """
-    Load waypoints from a file.
+    Load waypoints and build a weighted graph using networkx.
     Each line should be in the format: "waypoint_name: x, y".
     :param filename: The path to the file containing waypoints.
-    :return: A list of Pose objects representing the waypoints.
+    :return: A list of Pose objects and a networkx Graph.
     """
     waypoints = []
-    try:
-        with open(filename, "r") as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith("#"):
-                    continue
-                if ":" not in line or "," not in line:
-                    rospy.logwarn(f"Skipping invalid waypoint line: {line}")
-                    continue
-                _, coords_part = line.split(":", 1)
-                coords = coords_part.split(",")
-                if len(coords) < 2:
-                    rospy.logwarn(f"Skipping invalid waypoint line: {line}")
-                    continue
-                try:
-                    x = float(coords[0].strip())
-                    y = float(coords[1].strip())
-                except ValueError:
-                    rospy.logwarn(f"Skipping invalid waypoint coordinates: {coords}")
-                    continue
+    names = []
+    edges = []
+    with open(filename, 'r') as f:
+        lines = f.readlines()
+
+    edge_section = False
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith('#'):
+            if line.startswith('# Edges'):
+                edge_section = True
+            continue
+        if not edge_section:
+            if ':' in line:
+                name, coords = line.split(':')
+                x, y = map(float, coords.split(','))
                 waypoints.append(make_waypoint(x, y, 0.0, 0.0, 0.0, 0.0, 1.0))
-    except Exception as e:
-        rospy.logerr(f"Failed to load waypoints from {filename}: {e}")
-    return waypoints
+                names.append(name.strip())
+        else:
+            if '-' in line:
+                a, b = line.split('-')
+                a, b = a.strip(), b.strip()
+                edges.append((a, b))
+
+    # Build graph with weights
+    G = nx.Graph()
+    for idx, name in enumerate(names):
+        G.add_node(name, idx=idx)
+    for a, b in edges:
+        idx_a = names.index(a)
+        idx_b = names.index(b)
+        wp_a = waypoints[idx_a]
+        wp_b = waypoints[idx_b]
+        dist = math.hypot(wp_a.position.x - wp_b.position.x, wp_a.position.y - wp_b.position.y)
+        G.add_edge(a, b, weight=dist)
+    return waypoints, G
 
 
 def make_waypoint(
@@ -66,34 +79,51 @@ def make_waypoint(
     return pose
 
 
-def get_waypoint_path(current_idx: int, target_idx: int, total: int) -> List[int]:
+def dijkstra_path(edges: dict, start: str, goal: str) -> list:
     """
-    Get the path of waypoints from the current index to the target index.
+    Find shortest path using Dijkstra's algorithm.
+    :param edges: Dict of adjacency list {node: [neighbors]}
+    :param start: Start node name
+    :param goal: Goal node name
+    :return: List of node names representing the shortest path
+    """
+    import heapq
+    queue = [(0, start, [start])]
+    visited = set()
+    while queue:
+        cost, node, path = heapq.heappop(queue)
+        if node == goal:
+            return path
+        if node in visited:
+            continue
+        visited.add(node)
+        for neighbor in edges.get(node, []):
+            if neighbor not in visited:
+                heapq.heappush(queue, (cost + 1, neighbor, path + [neighbor]))
+    return []
+
+def get_waypoint_path(current_idx: int, target_idx: int, waypoints: list, graph: nx.Graph) -> list:
+    """
+    Get the shortest path of waypoints using networkx Dijkstra's algorithm.
     :param current_idx: The current waypoint index.
     :param target_idx: The target waypoint index.
-    :param total: Total number of waypoints.
-    :return: A list of indices representing the path from current to target.
+    :param waypoints: List of Pose objects.
+    :param graph: networkx Graph.
+    :return: List of indices representing the path.
     """
-    fwd_path = []
-    idx = current_idx
-    while idx != target_idx:
-        fwd_path.append(idx)
-        idx = (idx + 1) % total
-    fwd_path.append(target_idx)
-    fwd_len = len(fwd_path)
-
-    bwd_path = []
-    idx = current_idx
-    while idx != target_idx:
-        bwd_path.append(idx)
-        idx = (idx - 1 + total) % total
-    bwd_path.append(target_idx)
-    bwd_len = len(bwd_path)
-
-    if fwd_len <= bwd_len:
-        return fwd_path
-    else:
-        return bwd_path
+    # Find node names by index
+    start = None
+    goal = None
+    for node, data in graph.nodes(data=True):
+        if data['idx'] == current_idx:
+            start = node
+        if data['idx'] == target_idx:
+            goal = node
+    if start is None or goal is None:
+        return []
+    path_names = nx.shortest_path(graph, start, goal, weight='weight')
+    path_indices = [graph.nodes[name]['idx'] for name in path_names]
+    return path_indices
 
 
 def get_nearest_waypoint(pose: Pose) -> Tuple[int, float]:
