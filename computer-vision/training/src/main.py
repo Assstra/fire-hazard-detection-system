@@ -10,8 +10,8 @@ settings.update(
 print(settings)
 
 model = YOLO("yolo11n.pt")
-epochs = os.getenv("EPOCHS", 10)
-results = model.train(data="./config/dfire.yml", epochs=int(epochs), imgsz=640)
+epochs = int(os.getenv("EPOCHS", 10))
+results = model.train(data="./config/dfire.yml", epochs=epochs, imgsz=640)
 
 model.export(format="engine")
 model.export(format="onnx")
