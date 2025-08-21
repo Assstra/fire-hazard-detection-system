@@ -78,8 +78,7 @@ def go_to_position(client: actionlib.SimpleActionClient, target: Pose) -> None:
         return
     start_idx, _ = get_nearest_waypoint(global_vars.current_position)
     target_waypoint, _ = get_nearest_waypoint(target)
-    total = len(global_vars.waypoints)
-    path = get_waypoint_path(start_idx, target_waypoint, total)
+    path = get_waypoint_path(start_idx, target_waypoint, global_vars.waypoints, global_vars.edges)
     if len(path) >= 1:
         last_wp_idx = path[-1]
         last_wp_pose = global_vars.waypoints[last_wp_idx]
