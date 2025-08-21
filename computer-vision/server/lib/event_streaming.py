@@ -42,8 +42,12 @@ class EventStreamer:
             ir_generator = self.ir_detection_service.detect_from_video_stream()
 
             event_queue = asyncio.Queue()
-            asyncio.create_task(self.stream_consumer(rgb_generator, DetectionKind.RGB, event_queue))
-            asyncio.create_task(self.stream_consumer(ir_generator, DetectionKind.IR, event_queue))
+            asyncio.create_task(
+                self.stream_consumer(rgb_generator, DetectionKind.RGB, event_queue)
+            )
+            asyncio.create_task(
+                self.stream_consumer(ir_generator, DetectionKind.IR, event_queue)
+            )
 
             while True:
                 try:

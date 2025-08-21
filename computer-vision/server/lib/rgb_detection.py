@@ -21,6 +21,7 @@ class RgbDetectionService:
         self,
         model_path: str,
         confidence_threshold: float,
+        raw_video_writer_svc: Optional[VideoWriterService] = None,
         video_writer_svc: Optional[VideoWriterService] = None,
         video_streaming_svc: Optional[VideoStreamingService] = None,
     ):
@@ -28,6 +29,7 @@ class RgbDetectionService:
         self.confidence_threshold = confidence_threshold
         self.model = None
         self.load_model()
+        self.raw_video_writer_svc = raw_video_writer_svc
         self.video_writer_svc = video_writer_svc
         self.video_streaming_svc = video_streaming_svc
 
@@ -135,6 +137,11 @@ class RgbDetectionService:
                     # Detect position in frame
                     timestamp_start = time.time()
                     fire_position = self.detect_position_from_image(frame)
+                    # Save raw frame
+                    raw_frame = frame.copy()
+                    self.add_timestamp(raw_frame)
+                    if self.raw_video_writer_svc:
+                        self.raw_video_writer_svc.write_frame(raw_frame)
 
                     if fire_position != Position.NONE:
                         event_data = {
@@ -154,8 +161,8 @@ class RgbDetectionService:
                     logger.info(
                         f"Detection took {elapsed_time:.4f} seconds, waiting for remaining time"
                     )
-                    if elapsed_time < 1:
-                        await asyncio.sleep(1 - elapsed_time)
+                    if elapsed_time < 0.1:
+                        await asyncio.sleep(0.1 - elapsed_time)
 
             finally:
                 cap.release()

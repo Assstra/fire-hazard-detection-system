@@ -17,9 +17,11 @@ TELEMETRY_H = 2
 class InfraredDetectionService:
     def __init__(
         self,
+        raw_video_writer_svc: Optional[VideoWriterService] = None,
         video_writer_svc: Optional[VideoWriterService] = None,
         video_streaming_svc: Optional[VideoStreamingService] = None,
     ):
+        self.raw_video_writer_svc = raw_video_writer_svc
         self.video_writer_svc = video_writer_svc
         self.video_streaming_svc = video_streaming_svc
         self.cam = Lepton()
@@ -30,6 +32,7 @@ class InfraredDetectionService:
             width=int(self.cam.cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
             height=int(self.cam.cap.get(cv2.CAP_PROP_FRAME_HEIGHT) - TELEMETRY_H),
         )
+        logger.info(f"height: {self.cam_info.height}, width: {self.cam_info.width}")
 
     def close(self):
         self.cam.close()
@@ -44,6 +47,8 @@ class InfraredDetectionService:
                     if not ret:
                         logger.warning("Failed to read frame")
                         break
+                    if self.raw_video_writer_svc:
+                        self.raw_video_writer_svc.write_frame(frame)
 
                     # Detect position in frame
                     timestamp_start = time.time()
@@ -92,8 +97,8 @@ class InfraredDetectionService:
                     logger.info(
                         f"Detection took {elapsed_time:.4f} seconds, waiting for remaining time"
                     )
-                    if elapsed_time < 1:
-                        await asyncio.sleep(1 - elapsed_time)
+                    if elapsed_time < 0.1:
+                        await asyncio.sleep(0.1 - elapsed_time)
 
             finally:
                 self.cam.close()

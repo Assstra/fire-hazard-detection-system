@@ -27,9 +27,11 @@ event_streamer: Optional[EventStreamer] = None
 
 def create_app(args: argparse.Namespace) -> FastAPI:
     global \
+        raw_rgb_video_writer, \
         rgb_video_writer, \
         rgb_video_stream, \
         rgb_detect_service, \
+        raw_ir_video_writer, \
         ir_video_writer, \
         ir_video_stream, \
         ir_detect_service, \
@@ -41,8 +43,12 @@ def create_app(args: argparse.Namespace) -> FastAPI:
         # Cleanup on shutdown
         if event_streamer:
             event_streamer.active_streams.clear()
+        if raw_rgb_video_writer:
+            raw_rgb_video_writer.release()
         if rgb_video_writer:
             rgb_video_writer.release()
+        if raw_ir_video_writer:
+            raw_ir_video_writer.release()
         if ir_video_writer:
             ir_video_writer.release()
         if ir_detect_service:
@@ -50,25 +56,43 @@ def create_app(args: argparse.Namespace) -> FastAPI:
         logger.info("Server shutdown complete")
 
     if args.video_output:
+        raw_rgb_video_writer = VideoWriterService(
+            output_path=f"{args.video_output}/{time.time_ns()}_rgb_raw.mp4",
+            frame_width=640,
+            frame_height=480,
+            fps=10,
+        )
         rgb_video_writer = VideoWriterService(
             output_path=f"{args.video_output}/{time.time_ns()}_rgb.mp4",
             frame_width=640,
             frame_height=480,
-            fps=1,
+            fps=10,
+        )
+        raw_ir_video_writer = VideoWriterService(
+            output_path=f"{args.video_output}/{time.time_ns()}_ir_raw.mp4",
+            frame_width=160,
+            frame_height=120,
+            fps=10,
         )
         ir_video_writer = VideoWriterService(
             output_path=f"{args.video_output}/{time.time_ns()}_ir.mp4",
-            frame_width=640,
-            frame_height=480,
-            fps=1,
+            frame_width=160,
+            frame_height=120,
+            fps=10,
         )
 
     rgb_video_stream = VideoStreamingService()
     rgb_detect_service = RgbDetectionService(
-        args.model, args.confidence, rgb_video_writer, rgb_video_stream
+        args.model,
+        args.confidence,
+        raw_rgb_video_writer,
+        rgb_video_writer,
+        rgb_video_stream,
     )
     ir_video_stream = VideoStreamingService()
-    ir_detect_service = InfraredDetectionService(ir_video_writer, ir_video_stream)
+    ir_detect_service = InfraredDetectionService(
+        raw_ir_video_writer, ir_video_writer, ir_video_stream
+    )
 
     event_streamer = EventStreamer(rgb_detect_service, ir_detect_service)
 
