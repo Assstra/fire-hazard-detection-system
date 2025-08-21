@@ -1,4 +1,12 @@
+# Config
+loop: false
+
+# Coordinates
 E: 50.0, -5.0
-M1: 25.0, -2.5
+M: 25.0, -2.5
 W: 0.0, 0.0
-M2: 25.0, -2.5
+
+# Edges
+
+E-M
+M-W
