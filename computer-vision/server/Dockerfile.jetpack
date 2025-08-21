@@ -29,7 +29,7 @@ WORKDIR /ultralytics
 RUN python3 -m pip install --upgrade pip uv
 RUN uv pip install --system \
     https://github.com/ultralytics/assets/releases/download/v0.0.0/onnxruntime_gpu-1.20.0-cp310-cp310-linux_aarch64.whl \
-    https://github.com/ultralytics/assets/releases/download/v0.0.0/torch-2.5.0-cp310-cp310-linux_aarch64.whl \
+    https://github.com/ultralytics/assets/releases/download/v0.0.0/torch-2.5.0a0+872d972e41.nv24.08-cp310-cp310-linux_aarch64.whl \
     https://github.com/ultralytics/assets/releases/download/v0.0.0/torchvision-0.20.0a0+afc54f7-cp310-cp310-linux_aarch64.whl
 RUN uv pip install ultralytics --system --no-deps
 
