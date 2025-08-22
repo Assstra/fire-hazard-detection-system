@@ -1,3 +1,6 @@
+# Config
+loop: true
+
 # Coordinates
 SW: 86.0, 0.0
 S1: 87.0, 12.0
