@@ -1,4 +1,3 @@
-import argparse
 from contextlib import asynccontextmanager
 import time
 from typing import Optional
@@ -8,6 +7,7 @@ from fastapi.responses import StreamingResponse
 from sse_starlette.sse import EventSourceResponse
 import logging
 
+from lib.config import Config
 from lib.event_streaming import EventStreamer
 from lib.video_writer import VideoWriterService
 from lib.rgb_detection import RgbDetectionService
@@ -17,16 +17,18 @@ from lib.video_streaming import VideoStreamingService
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+raw_rgb_video_writer: Optional[VideoWriterService] = None
 rgb_video_writer: Optional[VideoWriterService] = None
 rgb_video_stream: Optional[VideoStreamingService] = None
 rgb_detect_service: Optional[RgbDetectionService] = None
+raw_ir_video_writer: Optional[VideoWriterService] = None
 ir_video_writer: Optional[VideoWriterService] = None
 ir_video_stream: Optional[VideoStreamingService] = None
 ir_detect_service: Optional[InfraredDetectionService] = None
 event_streamer: Optional[EventStreamer] = None
 
 
-def create_app(args: argparse.Namespace) -> FastAPI:
+def create_app(config: Config) -> FastAPI:
     global \
         raw_rgb_video_writer, \
         rgb_video_writer, \
@@ -56,45 +58,47 @@ def create_app(args: argparse.Namespace) -> FastAPI:
             ir_detect_service.close()
         logger.info("Server shutdown complete")
 
-    if args.video_output:
+    if config.video_output:
         raw_rgb_video_writer = VideoWriterService(
-            output_path=f"{args.video_output}/{time.time_ns()}_rgb_raw.mp4",
+            output_path=f"{config.video_output}/{time.time_ns()}_rgb_raw.mp4",
             frame_width=640,
             frame_height=480,
             fps=10,
         )
         rgb_video_writer = VideoWriterService(
-            output_path=f"{args.video_output}/{time.time_ns()}_rgb.mp4",
+            output_path=f"{config.video_output}/{time.time_ns()}_rgb.mp4",
             frame_width=640,
             frame_height=480,
             fps=10,
         )
-        raw_ir_video_writer = VideoWriterService(
-            output_path=f"{args.video_output}/{time.time_ns()}_ir_raw.mkv",
-            frame_width=160,
-            frame_height=120,
-            fps=10,
-            codec=cv2.VideoWriter_fourcc(*"xvid"),
-        )
-        ir_video_writer = VideoWriterService(
-            output_path=f"{args.video_output}/{time.time_ns()}_ir.mp4",
-            frame_width=160,
-            frame_height=120,
-            fps=10,
-        )
+        if not config.disable_ir:
+            raw_ir_video_writer = VideoWriterService(
+                output_path=f"{config.video_output}/{time.time_ns()}_ir_raw.mkv",
+                frame_width=160,
+                frame_height=120,
+                fps=10,
+                codec=cv2.VideoWriter_fourcc(*"xvid"),
+            )
+            ir_video_writer = VideoWriterService(
+                output_path=f"{config.video_output}/{time.time_ns()}_ir.mp4",
+                frame_width=160,
+                frame_height=120,
+                fps=10,
+            )
 
     rgb_video_stream = VideoStreamingService()
     rgb_detect_service = RgbDetectionService(
-        args.model,
-        args.confidence,
+        config.model,
+        config.confidence,
         raw_rgb_video_writer,
         rgb_video_writer,
         rgb_video_stream,
     )
-    ir_video_stream = VideoStreamingService()
-    ir_detect_service = InfraredDetectionService(
-        raw_ir_video_writer, ir_video_writer, ir_video_stream
-    )
+    if not config.disable_ir:
+        ir_video_stream = VideoStreamingService()
+        ir_detect_service = InfraredDetectionService(
+            raw_ir_video_writer, ir_video_writer, ir_video_stream
+        )
 
     event_streamer = EventStreamer(rgb_detect_service, ir_detect_service)
 
@@ -107,33 +111,17 @@ def create_app(args: argparse.Namespace) -> FastAPI:
     @app.get("/")
     async def root():
         return {
-            "model_path": args.model,
-            "endpoints": {
-                "health": "/health",
-                "events": "/events",
-                "model_info": "/model/info",
-                "video_stream": "/video/rgb",
-            },
-            "args": args.__dict__,
+            "model_path": config.model,
+            "args": config.__dict__,
+            "class_names": rgb_detect_service.model.names,
+            "input_size": getattr(rgb_detect_service.model, "imgsz", None),
         }
 
     @app.get("/health")
     async def health_check():
         return {
             "status": "healthy",
-            "model_loaded": rgb_detect_service.model is not None,
             "active_streams": len(event_streamer.active_streams),
-        }
-
-    @app.get("/model/info")
-    async def model_info():
-        if rgb_detect_service.model is None:
-            raise HTTPException(status_code=500, detail="Model not loaded")
-
-        return {
-            "model_path": rgb_detect_service.model_path,
-            "class_names": rgb_detect_service.model.names,
-            "input_size": getattr(rgb_detect_service.model, "imgsz", None),
         }
 
     @app.get("/events")
@@ -145,13 +133,13 @@ def create_app(args: argparse.Namespace) -> FastAPI:
             )
 
         return EventSourceResponse(
-            event_streamer.stream_detections(args.video_input),
+            event_streamer.stream_detections(config.video_input),
             media_type="text/event-stream",
         )
 
     @app.get("/video/rgb")
     async def video_stream_for_rgb(quality: int = 60):
-        """Stream processed video with RGB detections (MJPEG format)"""
+        """Stream processed video with RGB detections"""
         if rgb_video_stream is None:
             raise HTTPException(
                 status_code=500, detail="Video streaming service not initialized"
@@ -165,7 +153,12 @@ def create_app(args: argparse.Namespace) -> FastAPI:
 
     @app.get("/video/ir")
     async def video_stream_for_ir(quality: int = 60):
-        """Stream processed video with IR detections (MJPEG format)"""
+        """Stream processed video with IR detections"""
+        if config.disable_ir:
+            raise HTTPException(
+                status_code=403, detail="IR streaming is disabled by configuration"
+            )
+
         if ir_video_stream is None:
             raise HTTPException(
                 status_code=500, detail="Video streaming service not initialized"
@@ -180,57 +173,19 @@ def create_app(args: argparse.Namespace) -> FastAPI:
     return app
 
 
-def parse_args():
-    """Parse command line arguments"""
-    parser = argparse.ArgumentParser(description="Fire/Smoke Detection Server")
-    parser.add_argument(
-        "--model",
-        "-m",
-        required=True,
-        help="Path to YOLOv11 model file (.pt, .onnx, etc.)",
-    )
-    parser.add_argument(
-        "--host", default="0.0.0.0", help="Host to bind to (default: 0.0.0.0)"
-    )
-    parser.add_argument(
-        "--port", type=int, default=8000, help="Port to bind to (default: 8000)"
-    )
-    parser.add_argument(
-        "--confidence",
-        "-c",
-        type=float,
-        default=0.25,
-        help="Sets the minimum confidence threshold for detections (default: 0.25)",
-    )
-    parser.add_argument(
-        "--video-input",
-        "-vi",
-        default=0,
-        help="Video input source (default: 0 for webcam, can be a file path or camera index)",
-    )
-    parser.add_argument(
-        "--video-output",
-        "-vo",
-        type=str,
-        default=None,
-        help="Path to save the output video with detections (default: None, no video output)",
-    )
-
-    return parser.parse_args()
-
-
 def main():
-    args = parse_args()
+    config = Config.from_env()
+    logger.info(f"Configuration loaded: {config.__dict__}")
 
-    app = create_app(args)
+    app = create_app(config)
 
     import uvicorn
 
-    logger.info(f"Starting server with model: {args.model}")
-    logger.info(f"Server will be available at http://{args.host}:{args.port}")
+    logger.info(f"Starting server with model: {config.model}")
+    logger.info(f"Server will be available at http://{config.host}:{config.port}")
 
     # Run server
-    uvicorn.run(app, host=args.host, port=args.port)
+    uvicorn.run(app, host=config.host, port=config.port)
 
 
 if __name__ == "__main__":

@@ -18,21 +18,26 @@ The server requires a trained YOLOv11 model file.
 
 ```bash
 # Basic usage with model file
-uv run python main.py --model path/to/your/model.pt
+MODEL_PATH="path/to/your/model.pt" uv run python main.py
 ```
 
 You can use the model trained in the `../training` directory.
 
-### Command Line Arguments
+### Configuration
 
-- `--model, -m`: **Required** - Path to YOLOv11 model file, can be in various formats:
+Via environment variables:
+
+- `HOST`: Host to bind to (default: `0.0.0.0`)
+- `PORT`: Port to bind to (default: `8000`)
+- `MODEL_PATH`: (default: `/opt/models/model.pt`)  
+  Path to YOLOv11 model file, can be in various formats:
   - `.pt` (PyTorch)
   - `.onnx` (ONNX)
-  - `.engine` (TensorRT)
-- `--host`: Host to bind to (default: `0.0.0.0`)
-- `--port`: Port to bind to (default: `8000`)
-- `--confidence, c`: Sets the minimum confidence threshold for detections (default: `0.25`)
-- `--video-output, -v`: Path to a folder to save video output (default: `None`, no video output)
+  - ~~`.engine` (TensorRT)~~ todo: currently not supported... issues with tensorRT versions
+- `VIDEO_INPUT`: `device_id` (like `0` or `1`), or a filename to a video (default: `0`)
+- `VIDEO_OUTPUT`: Path to a folder to save video output (default: `None`, no video output)
+- `CONFIDENCE`: Sets the minimum confidence threshold for detections (default: `0.25`)
+- `DISABLE_IR`: If you put anything in this variable, it will disable the IR camera
 
 ### Docker Usage
 
@@ -57,19 +62,13 @@ See [Enable GPU support in Docker](https://docs.docker.com/compose/how-tos/gpu-s
 ```
 GET /
 ```
-Returns server information and available endpoints.
+Returns server information.
 
 #### Health Check
 ```
 GET /health
 ```
 Returns server health status and active stream count.
-
-#### Model Information
-```
-GET /model/info
-```
-Returns loaded model details including class names and configuration.
 
 #### Detection Stream (SSE)
 ```
@@ -83,6 +82,12 @@ For RGB camera:
 
 ```
 GET /video/rgb
+```
+
+For IR camera:
+
+```
+GET /video/ir
 ```
 
 ## Testing
@@ -100,7 +105,7 @@ uv run python test_client.py --host localhost --port 8000
 uv run python test_client.py --no-streaming
 
 # Stream from different video source
-uv run python test_client.py --video-source 1
+uv run python test_client.py
 ```
 
 ## Event Data Types
@@ -120,6 +125,7 @@ The SSE stream produces the following event data types:
 
 ```jsonc
 {
+  // or `ir_detection`
   "type": "rgb_detection",
   // Position of the boxes, from the center: "left", "right", "center" or "none"
   "position": "left",

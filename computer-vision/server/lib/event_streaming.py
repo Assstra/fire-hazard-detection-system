@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Optional
 from sse_starlette import JSONServerSentEvent
 from lib import DetectionKind
 from lib.rgb_detection import RgbDetectionService
@@ -15,7 +15,7 @@ class EventStreamer:
     def __init__(
         self,
         rgb_detection_service: RgbDetectionService,
-        ir_detection_service: InfraredDetectionService,
+        ir_detection_service: Optional[InfraredDetectionService],
     ):
         self.rgb_detection_service = rgb_detection_service
         self.ir_detection_service = ir_detection_service
@@ -39,15 +39,17 @@ class EventStreamer:
             rgb_generator = self.rgb_detection_service.detect_from_video_stream(
                 rgb_video_source
             )
-            ir_generator = self.ir_detection_service.detect_from_video_stream()
+            if self.ir_detection_service is not None:
+                ir_generator = self.ir_detection_service.detect_from_video_stream()
 
             event_queue = asyncio.Queue()
             asyncio.create_task(
                 self.stream_consumer(rgb_generator, DetectionKind.RGB, event_queue)
             )
-            asyncio.create_task(
-                self.stream_consumer(ir_generator, DetectionKind.IR, event_queue)
-            )
+            if self.ir_detection_service is not None:
+                asyncio.create_task(
+                    self.stream_consumer(ir_generator, DetectionKind.IR, event_queue)
+                )
 
             while True:
                 try:
