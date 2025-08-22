@@ -27,6 +27,7 @@ class EventStreamer:
         """Stream detection events as SSE"""
         stream_id = id(asyncio.current_task())
         self.active_streams.add(stream_id)
+        tasks = []
 
         try:
             logger.info(f"Starting detection stream {stream_id}")
@@ -43,13 +44,18 @@ class EventStreamer:
                 ir_generator = self.ir_detection_service.detect_from_video_stream()
 
             event_queue = asyncio.Queue()
-            asyncio.create_task(
+
+            tasks = []
+            rgb_task = asyncio.create_task(
                 self.stream_consumer(rgb_generator, DetectionKind.RGB, event_queue)
             )
+            tasks.append(rgb_task)
+
             if self.ir_detection_service is not None:
-                asyncio.create_task(
+                ir_task = asyncio.create_task(
                     self.stream_consumer(ir_generator, DetectionKind.IR, event_queue)
                 )
+                tasks.append(ir_task)
 
             while True:
                 try:
@@ -65,6 +71,21 @@ class EventStreamer:
             )
 
         finally:
+            # Cancel all background tasks when stream ends
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+                    try:
+                        await task
+                    except asyncio.CancelledError:
+                        logger.info(
+                            f"Successfully cancelled task for stream {stream_id}"
+                        )
+                    except Exception as e:
+                        logger.error(
+                            f"Error cancelling task for stream {stream_id}: {e}"
+                        )
+
             self.active_streams.discard(stream_id)
             logger.info(f"Closed detection stream {stream_id}")
 
@@ -73,6 +94,9 @@ class EventStreamer:
         try:
             async for event in generator:
                 await queue.put(event)
+        except asyncio.CancelledError:
+            logger.info(f"{source_type} stream consumer cancelled")
+            raise
         except Exception as e:
             logger.error(f"Error in {source_type} stream consumer: {e}")
             await queue.put({"type": "error", "message": str(e)})

@@ -100,7 +100,13 @@ class InfraredDetectionService:
                     if elapsed_time < 0.1:
                         await asyncio.sleep(0.1 - elapsed_time)
 
+            except asyncio.CancelledError:
+                logger.debug("IR detection generator cancelled")
+                raise
+            except Exception as e:
+                logger.error(f"Error in IR detection generator: {e}")
             finally:
+                logger.info("Closing IR camera")
                 self.cam.close()
 
         return detection_generator()

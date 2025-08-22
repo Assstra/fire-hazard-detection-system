@@ -84,19 +84,6 @@ def test_server_endpoints(base_url: str):
     except Exception as e:
         print(f"✗ Health endpoint error: {e}")
 
-    # Test model info endpoint
-    try:
-        response = requests.get(f"{base_url}/model/info")
-        if response.status_code == 200:
-            model_info = response.json()
-            print("✓ Model info endpoint working")
-            print(f"  Model path: {model_info.get('model_path', 'unknown')}")
-            print(f"  Classes: {list(model_info.get('class_names', {}).values())}")
-        else:
-            print(f"✗ Model info endpoint failed: {response.status_code}")
-    except Exception as e:
-        print(f"✗ Model info endpoint error: {e}")
-
     print()
 
 

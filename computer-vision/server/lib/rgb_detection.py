@@ -164,7 +164,13 @@ class RgbDetectionService:
                     if elapsed_time < 0.1:
                         await asyncio.sleep(0.1 - elapsed_time)
 
+            except asyncio.CancelledError:
+                logger.debug("RGB detection generator cancelled")
+                raise
+            except Exception as e:
+                logger.error(f"Error in RGB detection generator: {e}")
             finally:
+                logger.info("Releasing video capture")
                 cap.release()
 
         return detection_generator()
