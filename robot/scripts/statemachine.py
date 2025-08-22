@@ -162,7 +162,7 @@ def handle_search() -> bool:
                     return False
             else:
                 rospy.loginfo("No events received, turning...")
-                turn_degree(-45)
+                turn_degree(-30)
         # Drain any remaining events
         while parent_conn.poll():
             event = parent_conn.recv()
