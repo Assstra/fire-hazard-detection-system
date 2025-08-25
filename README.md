@@ -10,7 +10,11 @@ For more information, please read the [`./robot/README.md`](./robot/README.md).
 
 ## Computer vision
 
-If you want more details on it, you can read the [`./computer-vision/`](./computer-vision/) README.
+Structure:
+
+- [`./computer-vision/infrastructure/`](./computer-vision/infrastructure/): Kubernetes resources to train the model on a server with a GPU.
+- [`./computer-vision/server/`](./computer-vision/server/): Server-side code used on the robot. It uses the model we have trained, mainly to identify fires.
+- [`./computer-vision/training/`](./computer-vision/training/): Code used to train the model.
 
 ### Citations
 
