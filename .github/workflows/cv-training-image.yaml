@@ -1,0 +1,20 @@
+name: Build and Push `cv-training` Docker Image
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version of the image (ex: 0.1.0)'
+        type: string
+
+jobs:
+  build_and_push:
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/reusable-docker.yaml
+    with:
+      path: ./computer-vision/training
+      image: ghcr.io/${{ github.repository }}/cv-training
+      version: ${{ github.event.inputs.version }}
+      file: Dockerfile
