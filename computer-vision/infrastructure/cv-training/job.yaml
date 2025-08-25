@@ -1,0 +1,39 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cv-trainer
+  namespace: cv-training
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      runtimeClassName: nvidia
+      restartPolicy: Never
+      containers:
+        - name: cv-trainer
+          image: ghcr.io/assstra/fire-hazard-detection-system/cv-training:latest
+          imagePullPolicy: Always
+          env:
+            - name: EPOCHS
+              value: "10"
+          volumeMounts:
+            - name: cv-trainer-data
+              mountPath: /ultralytics/data
+            - name: dshm
+              mountPath: /dev/shm
+          resources:
+            limits:
+              nvidia.com/gpu: 1
+          securityContext:
+            capabilities:
+              add: ["IPC_LOCK"]
+      volumes:
+        - name: cv-trainer-data
+          persistentVolumeClaim:
+            claimName: cv-trainer-data-pvc
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            # arbitrary limit for shared memory, if not set, PyTorch dataloader crashes the pod
+            sizeLimit: 4Gi

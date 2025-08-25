@@ -1,0 +1,24 @@
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: cv-trainer-data-pv
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /home/mfernandez/Documents/fire-hazard-detection-system/computer-vision/training/data
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cv-trainer-data-pvc
+  namespace: cv-training
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
