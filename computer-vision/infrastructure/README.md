@@ -5,7 +5,8 @@ To train my models I wanted to automate it using Kubernetes and launch the train
 Components:
 - `nvidia/gpu-operator` to give access to GPU resources
 - [MLflow](https://mlflow.org/docs/latest/ml/tracking/) for tracking experiments
-- Storage: Persistent Volume to share the dataset (I wanted to keep it simple, but we should consider NFS or S3)
+  - Without any persistence, because for now, I don't care (Of course, in production, we should consider using a persistent backend like PostgreSQL)
+- Storage: Persistent Volume to share the dataset with `cv-training` (I wanted to keep it simple, but we should consider NFS or S3 in the future)
 
 ## To start
 

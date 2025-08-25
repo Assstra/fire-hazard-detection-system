@@ -1,6 +1,8 @@
 repositories:
   - name: nvidia
     url: https://helm.ngc.nvidia.com/nvidia
+  - name: community-charts
+    url: https://community-charts.github.io/helm-charts
 
 releases:
   - name: nvidia-gpu-operator
@@ -9,3 +11,8 @@ releases:
     version: v25.3.2
     values:
       - ./nvidia-gpu-operator.values.yaml
+
+  - name: mlflow
+    namespace: mlflow
+    chart: community-charts/mlflow
+    version: 1.5.0
