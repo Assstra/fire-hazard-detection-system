@@ -10,5 +10,6 @@ services:
     #   stack: 67108864
     environment:
       EPOCHS: 10
+      # EXPORT_FORMATS: "engine,onnx"
     volumes:
       - ./data:/ultralytics/data

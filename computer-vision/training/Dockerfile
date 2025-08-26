@@ -27,8 +27,6 @@ RUN apt-get update && \
 # Create working directory
 WORKDIR /ultralytics
 
-ADD https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11n.pt .
-
 # Install deps
 RUN python3 -m pip install --upgrade pip uv
 COPY requirements.txt ./

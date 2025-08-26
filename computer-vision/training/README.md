@@ -2,6 +2,19 @@
 
 This folder contains code to build the YOLO model (RGB) and to detect fire from a lepton camera (IR).
 
+## Configuration
+
+Available environment variables:
+
+- `BASE_MODEL`: The base model to use (default: `yolo11m.pt`)
+- `EPOCHS`: The number of training epochs (default: `10`)
+- `EXPORT_FORMATS`: The export formats for the trained model (default: None)
+  - example: `engine,onnx` for TensorRT and ONNX
+- MLFLOW related configuration
+  - `ACTIVATE_MLFLOW`: To activate MLFLOW tracking (default: is disabled), you only need to add the environment variable to activate it
+  - `MLFLOW_EXPERIMENT_NAME`: The name of the MLFLOW experiment (default: None)
+  - `MLFLOW_TRACKING_URI`: The URI of the MLFLOW tracking server (default: None)
+
 ## Before you start
 
 To start, download the base dataset to train the model.
