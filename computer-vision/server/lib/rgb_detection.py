@@ -11,7 +11,6 @@ from lib.video_writer import VideoWriterService
 from lib.video_streaming import VideoStreamingService
 
 logger = logging.getLogger(__name__)
-CENTER_THRESHOLD = 75  # Tolerance for center position detection
 
 
 class RgbDetectionService:
@@ -21,12 +20,14 @@ class RgbDetectionService:
         self,
         model_path: str,
         confidence_threshold: float,
+        center_threshold: float,
         raw_video_writer_svc: Optional[VideoWriterService] = None,
         video_writer_svc: Optional[VideoWriterService] = None,
         video_streaming_svc: Optional[VideoStreamingService] = None,
     ):
         self.model_path = model_path
         self.confidence_threshold = confidence_threshold
+        self.center_threshold = center_threshold
         self.model = None
         self.load_model()
         self.raw_video_writer_svc = raw_video_writer_svc
@@ -82,7 +83,7 @@ class RgbDetectionService:
                             )
 
             if fire_box_centers:
-                fire_position = calculate_position(fire_box_centers, center_x)
+                fire_position = self.calculate_position(fire_box_centers, center_x)
 
             # Process frame for video output (with or without detections)
             frame_with_annotations = image.copy()
@@ -205,18 +206,31 @@ class RgbDetectionService:
         """Add center threshold lines to the frame"""
         cv2.line(
             frame,
-            (center_x - CENTER_THRESHOLD, 0),
-            (center_x - CENTER_THRESHOLD, height),
+            (center_x - self.center_threshold, 0),
+            (center_x - self.center_threshold, height),
             (0, 255, 0),
             2,
         )
         cv2.line(
             frame,
-            (center_x + CENTER_THRESHOLD, 0),
-            (center_x + CENTER_THRESHOLD, height),
+            (center_x + self.center_threshold, 0),
+            (center_x + self.center_threshold, height),
             (0, 255, 0),
             2,
         )
+    
+    def calculate_position(self, box_centers: list[np.float32], center_x: int) -> Position:
+        """Determine overall position of `boxes_centers` from the image center `center_x`"""
+        logger.info(f"Calculating intersection for centers: {box_centers}")
+        intersection_x = sum(box_centers) / len(box_centers)
+        logger.info(f"Intersection X: {intersection_x}, Center X: {center_x}")
+
+        if abs(intersection_x - center_x) < self.center_threshold:
+            return Position.CENTER
+        elif intersection_x < center_x:
+            return Position.LEFT
+        else:
+            return Position.RIGHT
 
 
 def get_class_name(cls: int, model: YOLO) -> str | None:
@@ -225,17 +239,3 @@ def get_class_name(cls: int, model: YOLO) -> str | None:
         return model.names[cls]
     else:
         return None
-
-
-def calculate_position(box_centers: list[np.float32], center_x: int) -> Position:
-    """Determine overall position of `boxes_centers` from the image center `center_x`"""
-    logger.info(f"Calculating intersection for centers: {box_centers}")
-    intersection_x = sum(box_centers) / len(box_centers)
-    logger.info(f"Intersection X: {intersection_x}, Center X: {center_x}")
-
-    if abs(intersection_x - center_x) < CENTER_THRESHOLD:
-        return Position.CENTER
-    elif intersection_x < center_x:
-        return Position.LEFT
-    else:
-        return Position.RIGHT
