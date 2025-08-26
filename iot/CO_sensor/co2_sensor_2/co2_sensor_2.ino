@@ -39,7 +39,7 @@ const unsigned long stabilization_time = 10000; // 10 seconds to stabilize
 const float fire_threshold = 2.0;
 unsigned long lastAlertTime = 0;
 bool canSendAlert = true;
-const unsigned long alertInterval = 3600000; // 60 Minutes
+const unsigned long alertInterval = 100000; // 1 Minute
 
 // Healthcheck timing
 unsigned long lastHealthcheckTime = 0;
@@ -67,14 +67,14 @@ void send_message(String type, unsigned int currentTime, String additional_info)
   String message = type + "-" + device_id + "-" + String(currentTime) + "-" + additional_info + "#";
   es920.println(message);
   
-//   Serial.print("Message sent to ES920 N01:");
-//   Serial.print(type);
-//   Serial.print("-");
-//   Serial.print(device_id);
-//   Serial.print("-");
-//   Serial.print(currentTime);
-//   Serial.print("-");
-//   Serial.println(additional_info);
+  Serial.print("Message sent to ES920 N01:");
+  Serial.print(type);
+  Serial.print("-");
+  Serial.print(device_id);
+  Serial.print("-");
+  Serial.print(currentTime);
+  Serial.print("-");
+  Serial.println(additional_info);
 }
 
 void setup() {
@@ -173,11 +173,11 @@ void loop() {
           float spike = mean - baseline_mean;
           
           if (spike > fire_threshold && canSendAlert) {
-
+            
             // Avoid multiple alerts
             lastAlertTime = currentTime;
             canSendAlert = false;
-
+            
             send_message("A", currentTime, String(mean));
           }
   

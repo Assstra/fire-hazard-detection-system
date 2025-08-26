@@ -39,7 +39,7 @@ const unsigned long stabilization_time = 10000; // 10 seconds to stabilize
 const float fire_threshold = 2.0;
 unsigned long lastAlertTime = 0;
 bool canSendAlert = true;
-const unsigned long alertInterval = 10000; // 1 Minute
+const unsigned long alertInterval = 100000; // 1 Minute
 
 // Healthcheck timing
 unsigned long lastHealthcheckTime = 0;
@@ -175,9 +175,10 @@ void loop() {
           if (spike > fire_threshold && canSendAlert) {
             
             // Avoid multiple alerts
+            lastAlertTime = currentTime;
+            canSendAlert = false;
+            
             send_message("A", currentTime, String(mean));
-
-
           }
   
           lastPrintTime = currentTime;
