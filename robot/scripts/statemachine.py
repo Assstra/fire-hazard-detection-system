@@ -163,13 +163,19 @@ def handle_search() -> bool:
                     # kill the connection process to the search server
                     p.kill()
                     return False
+                    
+                # Drain any remaining events
+                while parent_conn.poll():
+                    event = parent_conn.recv()
+                    rospy.logdebug(f"Draining event: {event}")
+
             else:
                 rospy.loginfo("No events received, turning...")
                 turn_degree(-30)
         # Drain any remaining events
         while parent_conn.poll():
             event = parent_conn.recv()
-            rospy.loginfo(f"Search event: {event}")
+            rospy.logdebug(f"Draining event: {event}")
     finally:
         p.join()
     rospy.loginfo("Search complete, returning to patrol mode.")
