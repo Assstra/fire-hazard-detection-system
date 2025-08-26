@@ -59,28 +59,29 @@ def create_app(config: Config) -> FastAPI:
         logger.info("Server shutdown complete")
 
     if config.video_output:
+        video_name = time.time_ns()
         raw_rgb_video_writer = VideoWriterService(
-            output_path=f"{config.video_output}/{time.time_ns()}_rgb_raw.mp4",
+            output_path=f"{config.video_output}/{video_name}_rgb_raw.mp4",
             frame_width=640,
             frame_height=480,
             fps=10,
         )
         rgb_video_writer = VideoWriterService(
-            output_path=f"{config.video_output}/{time.time_ns()}_rgb.mp4",
+            output_path=f"{config.video_output}/{video_name}_rgb.mp4",
             frame_width=640,
             frame_height=480,
             fps=10,
         )
         if not config.disable_ir:
             raw_ir_video_writer = VideoWriterService(
-                output_path=f"{config.video_output}/{time.time_ns()}_ir_raw.mkv",
+                output_path=f"{config.video_output}/{video_name}_ir_raw.mkv",
                 frame_width=160,
                 frame_height=120,
                 fps=10,
                 codec=cv2.VideoWriter_fourcc(*"xvid"),
             )
             ir_video_writer = VideoWriterService(
-                output_path=f"{config.video_output}/{time.time_ns()}_ir.mp4",
+                output_path=f"{config.video_output}/{video_name}_ir.mp4",
                 frame_width=160,
                 frame_height=120,
                 fps=10,
