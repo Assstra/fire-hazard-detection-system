@@ -37,7 +37,7 @@ Via environment variables:
 - `VIDEO_INPUT`: `device_id` (like `0` or `1`), or a filename to a video (default: `0`)
 - `VIDEO_OUTPUT`: Path to a folder to save video output (default: `None`, no video output)
 - `CONFIDENCE`: Sets the minimum confidence threshold for detections (default: `0.25`)
-- `CENTER_THRESHOLD`: Sets the center threshold for position detection (default: `75.0`)
+- `CENTER_THRESHOLD`: Sets the center threshold for position detection (default: `75`)
 - `DISABLE_IR`: If you put anything in this variable, it will disable the IR camera
 
 ### Docker Usage

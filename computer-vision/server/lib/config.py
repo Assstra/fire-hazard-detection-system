@@ -11,7 +11,7 @@ class Config:
         video_input: int | str,
         video_output: Optional[str] = None,
         confidence: float = 0.25,
-        center_threshold: float = 75.0,
+        center_threshold: int = 75,
         disable_ir: bool = False,
     ):
         self.host = host
@@ -36,6 +36,6 @@ class Config:
             video_input=video_input,
             video_output=os.getenv("VIDEO_OUTPUT", None),
             confidence=float(os.getenv("CONFIDENCE", 0.25)),
-            center_threshold=float(os.getenv("CENTER_THRESHOLD", 75.0)),
+            center_threshold=int(os.getenv("CENTER_THRESHOLD", 75)),
             disable_ir=isinstance(os.getenv("DISABLE_IR"), str),
         )

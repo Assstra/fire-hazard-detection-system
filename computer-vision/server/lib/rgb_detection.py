@@ -20,7 +20,7 @@ class RgbDetectionService:
         self,
         model_path: str,
         confidence_threshold: float,
-        center_threshold: float,
+        center_threshold: int,
         raw_video_writer_svc: Optional[VideoWriterService] = None,
         video_writer_svc: Optional[VideoWriterService] = None,
         video_streaming_svc: Optional[VideoStreamingService] = None,

@@ -91,6 +91,7 @@ def create_app(config: Config) -> FastAPI:
     rgb_detect_service = RgbDetectionService(
         config.model,
         config.confidence,
+        config.center_threshold,
         raw_rgb_video_writer,
         rgb_video_writer,
         rgb_video_stream,
