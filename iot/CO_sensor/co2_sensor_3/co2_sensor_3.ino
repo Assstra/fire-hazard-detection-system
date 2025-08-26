@@ -7,6 +7,7 @@ SoftwareSerial es920(UART_RX, UART_TX);
 
 // Information
 const String device_id = "003";
+const int LED_PIN = 13;
 
 // PWM related
 const int PWM_PIN = 3;
@@ -34,57 +35,52 @@ unsigned long baseline_time = 0;
 const unsigned long baseline_update_interval = 10000;
 const unsigned long stabilization_time = 10000; // 10 seconds to stabilize
 
-// Fire detection threshold
+// Fire detection
 const float fire_threshold = 2.0;
+unsigned long lastAlertTime = 0;
+bool canSendAlert = true;
+const unsigned long alertInterval = 3600000; // 60 Minutes
 
 // Healthcheck timing
 unsigned long lastHealthcheckTime = 0;
 const unsigned long healthcheckInterval = 300000; // 5 Minutes
-
-// Button (for tests only)
-const int BUTTON_PIN = 13;
-int buttonState = 0;
 
 int reference_resistor_kOhm = 10;
 
 // 5V - 60 seconds
 void heating_phase() {
   digitalWrite(PWM_PIN, HIGH);
+  digitalWrite(LED_PIN, LOW);
   Serial.println("Heating phase started");
 }
 
 // 1.4V - 90 seconds
 void measuring_phase() {
   analogWrite(PWM_PIN, duty_value);
+  digitalWrite(LED_PIN, HIGH);
   Serial.println("Measuring phase started");
 }
 
 // LoRa message sender
 void send_message(String type, unsigned int currentTime, String additional_info) {
   
-  es920.print(type);
-  es920.print("-");
-  es920.print(device_id);
-  es920.print("-");
-  es920.print(currentTime);
-  es920.print("-");
-  es920.print(additional_info);
-  es920.println("#");
+  String message = type + "-" + device_id + "-" + String(currentTime) + "-" + additional_info + "#";
+  es920.println(message);
   
-  Serial.print("Message sent to ES920 N01:");
-  Serial.print(type);
-  Serial.print("-");
-  Serial.print(device_id);
-  Serial.print("-");
-  Serial.print(currentTime);
-  Serial.print("-");
-  Serial.println(additional_info);
+//   Serial.print("Message sent to ES920 N01:");
+//   Serial.print(type);
+//   Serial.print("-");
+//   Serial.print(device_id);
+//   Serial.print("-");
+//   Serial.print(currentTime);
+//   Serial.print("-");
+//   Serial.println(additional_info);
 }
 
 void setup() {
   pinMode(PWM_PIN, OUTPUT);
   pinMode(A0, INPUT);
-  pinMode(BUTTON_PIN, INPUT);
+  pinMode(LED_PIN, OUTPUT);
   
   // Initialize sensor array with zeros
   for (int i = 0; i < array_size; i++) {
@@ -176,7 +172,12 @@ void loop() {
           // Fire detection logic
           float spike = mean - baseline_mean;
           
-          if (spike > fire_threshold) {
+          if (spike > fire_threshold && canSendAlert) {
+
+            // Avoid multiple alerts
+            lastAlertTime = currentTime;
+            canSendAlert = false;
+
             send_message("A", currentTime, String(mean));
           }
   
@@ -211,6 +212,11 @@ void loop() {
         lastPrintTime = currentTime;
       }
     }
+  }
+
+  // Update alert trigger to true, so the device can send alerts
+  if (currentTime - lastAlertTime >= alertInterval) {
+    canSendAlert = true;
   }
 
   // Healthcheck every 5 minutes
