@@ -52,7 +52,7 @@ class RgbDetectionService:
 
         try:
             results = self.model.predict(
-                image, stream=True, conf=self.confidence_threshold
+                image, stream=True, conf=self.confidence_threshold, verbose=False
             )
             fire_position = Position.NONE
             h, w, _ = image.shape
@@ -218,8 +218,10 @@ class RgbDetectionService:
             (0, 255, 0),
             2,
         )
-    
-    def calculate_position(self, box_centers: list[np.float32], center_x: int) -> Position:
+
+    def calculate_position(
+        self, box_centers: list[np.float32], center_x: int
+    ) -> Position:
         """Determine overall position of `boxes_centers` from the image center `center_x`"""
         logger.info(f"Calculating intersection for centers: {box_centers}")
         intersection_x = sum(box_centers) / len(box_centers)
